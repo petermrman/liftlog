@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="LiftLog">
+    <meta name="theme-color" content="#0a0a0a">
+    <title>LiftLog</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        :root {
+            --bg: #0a0a0a; --bg2: #141414; --bg3: #1e1e1e;
+            --text: #f5f5f5; --text2: #a0a0a0; --text3: #606060;
+            --border: #2a2a2a; --accent: #f59e0b; --success: #22c55e; --danger: #ef4444;
+            --blue: #3b82f6; --red: #ef4444; --green: #22c55e; --purple: #a855f7;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+        
+        /* Header */
+        .header { position: sticky; top: 0; z-index: 100; background: var(--bg); border-bottom: 1px solid var(--border); padding: 1rem; }
+        .header-content { display: flex; justify-content: space-between; align-items: center; max-width: 500px; margin: 0 auto; }
+        .logo { font-size: 1.25rem; font-weight: 700; }
+        .logo span { color: var(--accent); }
+        .nav { display: flex; gap: 0.25rem; background: var(--bg2); padding: 0.25rem; border-radius: 0.5rem; }
+        .nav button { padding: 0.5rem 0.75rem; border: none; background: transparent; color: var(--text2); font-size: 0.875rem; border-radius: 0.375rem; cursor: pointer; }
+        .nav button.active { background: var(--bg3); color: var(--text); }
+        
+        /* Main */
+        .main { max-width: 500px; margin: 0 auto; padding: 1rem; }
+        .screen { display: none; }
+        .screen.active { display: block; }
+        
+        /* Week & Day */
+        .week-bar { text-align: center; padding: 0.75rem; margin-bottom: 1rem; background: var(--bg2); border-radius: 0.5rem; font-size: 0.875rem; }
+        .week-bar span { color: var(--accent); font-weight: 600; }
+        .days { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-bottom: 1rem; }
+        .day-btn { padding: 0.75rem 0.5rem; border: 2px solid var(--border); background: var(--bg2); color: var(--text2); font-size: 0.75rem; font-weight: 600; border-radius: 0.75rem; cursor: pointer; text-align: center; }
+        .day-btn span { font-size: 1.25rem; display: block; margin-bottom: 0.125rem; }
+        .day-btn.active { border-color: var(--accent); color: var(--text); }
+        
+        /* Date */
+        .date-row { margin-bottom: 1rem; }
+        .date-row label { display: block; font-size: 0.75rem; color: var(--text2); margin-bottom: 0.375rem; }
+        .date-input { width: 100%; padding: 0.75rem; background: var(--bg2); border: 1px solid var(--border); border-radius: 0.5rem; color: var(--text); font-size: 1rem; }
+        
+        /* Exercise Card */
+        .ex-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1rem; margin-bottom: 0.75rem; }
+        .ex-card.done { border-color: var(--success); }
+        .ex-head { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
+        .ex-name { font-weight: 600; font-size: 0.9375rem; }
+        .ex-rx { font-size: 0.75rem; color: var(--text2); background: var(--bg3); padding: 0.25rem 0.5rem; border-radius: 0.25rem; }
+        .ex-hint { font-size: 0.75rem; color: var(--text3); margin-bottom: 0.75rem; }
+        
+        /* Set Row */
+        .set-row { display: flex; align-items: center; gap: 0.375rem; margin-bottom: 0.5rem; }
+        .set-num { width: 1.5rem; font-size: 0.75rem; color: var(--text3); }
+        .set-input { width: 3.5rem; padding: 0.5rem 0.25rem; background: var(--bg3); border: 1px solid var(--border); border-radius: 0.375rem; color: var(--text); font-size: 0.875rem; text-align: center; }
+        .set-input:focus { outline: none; border-color: var(--accent); }
+        .set-input.warmup { border-style: dashed; opacity: 0.7; }
+        .set-unit { font-size: 0.625rem; color: var(--text3); width: 1.5rem; }
+        .warmup-btn { padding: 0.25rem 0.5rem; font-size: 0.625rem; background: transparent; border: 1px solid var(--border); border-radius: 0.25rem; color: var(--text3); cursor: pointer; }
+        .warmup-btn.active { border-color: var(--accent); color: var(--accent); }
+        .add-btn { width: 2.5rem; height: 2rem; border: 1px dashed var(--border); background: transparent; color: var(--text3); border-radius: 0.375rem; cursor: pointer; font-size: 1.25rem; margin-top: 0.25rem; }
+        
+        /* Check */
+        .check-row { display: flex; align-items: center; gap: 0.75rem; }
+        .check-btn { width: 2.5rem; height: 2.5rem; border: 2px solid var(--border); background: var(--bg3); border-radius: 0.5rem; cursor: pointer; font-size: 1.25rem; color: var(--text3); }
+        .check-btn.checked { border-color: var(--success); background: rgba(34,197,94,0.2); color: var(--success); }
+        
+        /* Buttons */
+        .save-btn { width: 100%; padding: 1rem; margin-top: 1rem; background: var(--accent); border: none; border-radius: 0.75rem; color: #000; font-size: 1rem; font-weight: 600; cursor: pointer; }
+        .save-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .actions { display: flex; gap: 0.5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+        .action-btn { flex: 1; padding: 0.75rem; background: var(--bg2); border: 1px solid var(--border); border-radius: 0.5rem; color: var(--text2); font-size: 0.875rem; cursor: pointer; }
+        .week-select { flex: 1; padding: 0.75rem; background: var(--bg2); border: 1px solid var(--border); border-radius: 0.5rem; color: var(--text); font-size: 0.875rem; }
+        
+        /* History */
+        .hist-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1rem; margin-bottom: 0.75rem; cursor: pointer; }
+        .hist-top { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
+        .hist-date { font-size: 0.875rem; }
+        .hist-day { font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 600; }
+        .hist-day.A { background: rgba(59,130,246,0.2); color: var(--blue); }
+        .hist-day.B { background: rgba(239,68,68,0.2); color: var(--red); }
+        .hist-day.C { background: rgba(34,197,94,0.2); color: var(--green); }
+        .hist-day.D { background: rgba(168,85,247,0.2); color: var(--purple); }
+        .hist-lift { font-weight: 600; margin-bottom: 0.25rem; }
+        .hist-summary { font-size: 0.75rem; color: var(--text2); }
+        
+        /* Progress */
+        .prog-btns { display: flex; gap: 0.5rem; margin-bottom: 1rem; overflow-x: auto; }
+        .prog-btn { padding: 0.5rem 0.75rem; background: var(--bg2); border: 1px solid var(--border); border-radius: 0.5rem; color: var(--text2); font-size: 0.875rem; cursor: pointer; white-space: nowrap; }
+        .prog-btn.active { border-color: var(--accent); color: var(--text); }
+        .prog-chart { background: var(--bg2); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1rem; }
+        .prog-title { font-size: 0.75rem; color: var(--text2); margin-bottom: 1rem; }
+        .prog-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+        .prog-date { font-size: 0.625rem; color: var(--text3); width: 3rem; }
+        .prog-bar-bg { flex: 1; height: 1.25rem; background: var(--bg3); border-radius: 0.25rem; overflow: hidden; }
+        .prog-bar { height: 100%; background: var(--accent); border-radius: 0.25rem; }
+        .prog-val { font-size: 0.75rem; width: 2.5rem; text-align: right; }
+        
+        /* Modal */
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.95); z-index: 200; overflow-y: auto; }
+        .modal.show { display: block; }
+        .modal-inner { max-width: 500px; margin: 1rem auto; padding: 1rem; }
+        .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+        .modal-title { font-size: 1.125rem; font-weight: 600; }
+        .modal-close { width: 2.5rem; height: 2.5rem; border: none; background: var(--bg2); color: var(--text); font-size: 1.25rem; border-radius: 0.5rem; cursor: pointer; }
+        .modal-date { font-size: 0.875rem; color: var(--text2); margin-bottom: 1rem; }
+        .modal-btns { display: flex; gap: 0.5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+        .modal-btn { flex: 1; padding: 0.75rem; border: none; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+        .modal-btn.save { background: var(--accent); color: #000; }
+        .modal-btn.delete { background: var(--danger); color: #fff; }
+        .modal-btn.cancel { background: var(--bg2); color: var(--text2); border: 1px solid var(--border); }
+        
+        /* Empty & Toast */
+        .empty { text-align: center; padding: 3rem 1rem; color: var(--text2); }
+        .toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--success); color: #000; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 600; opacity: 0; transition: all 0.3s; z-index: 300; }
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        .file-input { display: none; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">LIFT<span>LOG</span></div>
+            <nav class="nav">
+                <button class="active" data-screen="new">Nieuw</button>
+                <button data-screen="history">Log</button>
+                <button data-screen="progress">Stats</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main">
+        <section id="screen-new" class="screen active">
+            <div class="week-bar">Week <span id="week-num">1</span> | RPE 6-7</div>
+            <div class="days">
+                <button class="day-btn" data-day="A"><span>A</span>Squat</button>
+                <button class="day-btn" data-day="B"><span>B</span>Bench</button>
+                <button class="day-btn" data-day="C"><span>C</span>Deadlift</button>
+                <button class="day-btn" data-day="D"><span>D</span>Push Press</button>
+            </div>
+            <div class="date-row">
+                <label>Datum</label>
+                <input type="date" class="date-input" id="date-input">
+            </div>
+            <div id="exercises"></div>
+            <button class="save-btn" id="save-btn" disabled>Training Opslaan</button>
+            <div class="actions">
+                <select class="week-select" id="week-select"><option value="all">Alle weken</option></select>
+                <button class="action-btn" id="export-btn">📤 Export</button>
+                <button class="action-btn" id="import-btn">📥 Import</button>
+            </div>
+            <input type="file" class="file-input" id="file-input" accept=".csv">
+        </section>
+
+        <section id="screen-history" class="screen">
+            <div id="history"></div>
+        </section>
+
+        <section id="screen-progress" class="screen">
+            <div class="prog-btns">
+                <button class="prog-btn active" data-lift="Back Squat">Squat</button>
+                <button class="prog-btn" data-lift="Bench Press">Bench</button>
+                <button class="prog-btn" data-lift="Conventional Deadlift">Deadlift</button>
+                <button class="prog-btn" data-lift="Push Press">Push Press</button>
+            </div>
+            <div class="prog-chart">
+                <div class="prog-title">Topset Progressie (kg)</div>
+                <div id="progress"></div>
+            </div>
+        </section>
+    </main>
+
+    <div class="modal" id="modal">
+        <div class="modal-inner">
+            <div class="modal-head">
+                <span class="modal-title" id="modal-title"></span>
+                <button class="modal-close" id="modal-close">✕</button>
+            </div>
+            <div class="modal-date" id="modal-date"></div>
+            <div id="modal-body"></div>
+            <div class="modal-btns">
+                <button class="modal-btn cancel" id="btn-cancel">Annuleren</button>
+                <button class="modal-btn delete" id="btn-delete">Verwijder</button>
+                <button class="modal-btn save" id="btn-save">Opslaan</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+    (function() {
+        'use strict';
+
+        // Templates
+        const TEMPLATES = {
+            A: { name: 'Squat', exercises: [
+                { name: 'Back Squat', sets: 4, reps: 5, type: 'weight', hint: 'Diepte boven gewicht', ph: '60' },
+                { name: 'Romanian Deadlift', sets: 3, reps: 10, type: 'weight', hint: 'Hamstrings voelen', ph: '70' },
+                { name: 'Incline DB Press', sets: 3, reps: 10, type: 'weight', hint: 'Bank 30-45°', ph: '56' },
+                { name: 'Cable Row', sets: 3, reps: 10, type: 'weight', hint: 'Scapula squeeze', ph: '85' },
+                { name: 'Dead Hang', sets: 1, reps: null, type: 'timed', hint: 'Max hold', phW: 'BW', phT: '50' }
+            ]},
+            B: { name: 'Bench Press', exercises: [
+                { name: 'Scapula Retractions', sets: 2, reps: 15, type: 'check', hint: 'Activatie' },
+                { name: 'Bench Press', sets: 4, reps: 5, type: 'weight', hint: 'Schouderbladen gepind', ph: '85' },
+                { name: 'Chest Supported Row', sets: 3, reps: 10, type: 'weight', hint: 'Scapula focus', ph: '45' },
+                { name: 'Bulgarian Split Squat', sets: 3, reps: 10, type: 'weight', hint: 'Per been', ph: '20' },
+                { name: 'Face Pulls', sets: 2, reps: 15, type: 'weight', hint: 'Ellebogen hoog', ph: '45' },
+                { name: 'BTBBH', sets: 2, reps: null, type: 'timed', hint: '2x max hold', phW: '60', phT: '60' }
+            ]},
+            C: { name: 'Deadlift', exercises: [
+                { name: 'Hip Hinge met stok', sets: 2, reps: 8, type: 'check', hint: 'Techniek check' },
+                { name: 'Conventional Deadlift', sets: 4, reps: 5, type: 'weight', hint: 'Rug neutraal!', ph: '110' },
+                { name: 'Leg Press uni', sets: 3, reps: 10, type: 'weight', hint: 'Voet hoog', ph: '70' },
+                { name: 'Dumbbell Row', sets: 3, reps: 10, type: 'weight', hint: 'Per arm', ph: '26' },
+                { name: 'Dips', sets: 3, reps: 10, type: 'weight', hint: 'BW = bodyweight', ph: 'BW' },
+                { name: 'Dead Hang', sets: 1, reps: null, type: 'timed', hint: 'Decompressie', phW: 'BW', phT: '50' }
+            ]},
+            D: { name: 'Push Press', exercises: [
+                { name: 'Scapula Retractions', sets: 2, reps: 15, type: 'check', hint: 'Activatie' },
+                { name: 'Push Press', sets: 4, reps: 5, type: 'weight', hint: 'Explosief uit dip', ph: '50' },
+                { name: 'Lat Pulldown', sets: 3, reps: 10, type: 'weight', hint: 'Voorzichtig lat!', ph: '55' },
+                { name: 'Goblet Squat', sets: 3, reps: 10, type: 'weight', hint: 'Core aan', ph: '22' },
+                { name: 'Seated Cable Row', sets: 3, reps: 10, type: 'weight', hint: 'Scapula squeeze', ph: '80' },
+                { name: 'BTBBH', sets: 2, reps: null, type: 'timed', hint: '2x max hold', phW: '60', phT: '60' }
+            ]}
+        };
+
+        // Initial data
+        const INIT = [
+            { id: 1, date: '2025-12-20', day: 'C', lift: 'Deadlift', week: 1, exercises: [
+                { name: 'Hip Hinge met stok', type: 'check', done: true },
+                { name: 'Conventional Deadlift', type: 'weight', sets: [{w:'70',r:'5',warmup:true},{w:'90',r:'5'},{w:'100',r:'5'},{w:'110',r:'5'}]},
+                { name: 'Leg Press uni', type: 'weight', sets: [{w:'40',r:'10'},{w:'60',r:'10'},{w:'70',r:'10'}]},
+                { name: 'Dumbbell Row', type: 'weight', sets: [{w:'24',r:'10'},{w:'26',r:'10'},{w:'28',r:'10'}]},
+                { name: 'Dips', type: 'weight', sets: [{w:'BW',r:'10'},{w:'BW',r:'10'},{w:'BW',r:'10'}]},
+                { name: 'Dead Hang', type: 'timed', sets: [{w:'BW',t:'50'}]}
+            ]},
+            { id: 2, date: '2025-12-17', day: 'B', lift: 'Bench Press', week: 1, exercises: [
+                { name: 'Scapula Retractions', type: 'check', done: true },
+                { name: 'Bench Press', type: 'weight', sets: [{w:'20',r:'5',warmup:true},{w:'50',r:'5'},{w:'70',r:'5'},{w:'80',r:'5'},{w:'85',r:'5'},{w:'90',r:'5'}]},
+                { name: 'Chest Supported Row', type: 'weight', sets: [{w:'30',r:'10'},{w:'40',r:'10'},{w:'50',r:'10'}]},
+                { name: 'Bulgarian Split Squat', type: 'weight', sets: [{w:'20',r:'10'},{w:'20',r:'10'},{w:'20',r:'10'}]},
+                { name: 'Face Pulls', type: 'weight', sets: [{w:'40',r:'15'},{w:'45',r:'15'}]},
+                { name: 'BTBBH', type: 'timed', sets: [{w:'60',t:'60'},{w:'60',t:'40'}]}
+            ]},
+            { id: 3, date: '2025-12-15', day: 'A', lift: 'Squat', week: 1, exercises: [
+                { name: 'Back Squat', type: 'weight', sets: [{w:'20',r:'5',warmup:true},{w:'40',r:'5'},{w:'50',r:'5'},{w:'60',r:'5'}]},
+                { name: 'Romanian Deadlift', type: 'weight', sets: [{w:'20',r:'10',warmup:true},{w:'50',r:'10'},{w:'70',r:'10'},{w:'80',r:'10'}]},
+                { name: 'Incline DB Press', type: 'weight', sets: [{w:'48',r:'10'},{w:'56',r:'10'},{w:'60',r:'10'}]},
+                { name: 'Cable Row', type: 'weight', sets: [{w:'75',r:'10'},{w:'85',r:'10'},{w:'95',r:'10'}]},
+                { name: 'Dead Hang', type: 'timed', sets: [{w:'BW',t:'20'}]}
+            ]}
+        ];
+
+        // State
+        let data = JSON.parse(localStorage.getItem('liftlog2')) || INIT;
+        if (!localStorage.getItem('liftlog2')) localStorage.setItem('liftlog2', JSON.stringify(INIT));
+        let selectedDay = null;
+        let current = null;
+        let editIdx = null;
+        let editData = null;
+
+        // DOM
+        const $ = id => document.getElementById(id);
+        const exEl = $('exercises');
+        const saveBtn = $('save-btn');
+        const dateInput = $('date-input');
+        const modal = $('modal');
+        const modalBody = $('modal-body');
+        const toast = $('toast');
+
+        // Init
+        dateInput.value = new Date().toISOString().split('T')[0];
+        const wk = Math.max(1, Math.ceil((new Date() - new Date('2025-12-15')) / 604800000));
+        $('week-num').textContent = wk;
+
+        // Helpers
+        const showToast = msg => { toast.textContent = msg; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2000); };
+        const fmtDate = d => { const dt = new Date(d); return ['Zo','Ma','Di','Wo','Do','Vr','Za'][dt.getDay()] + ' ' + dt.getDate() + '-' + (dt.getMonth()+1); };
+        const getPrev = (day, name) => { const t = data.find(x => x.day === day); return t ? t.exercises.find(e => e.name === name) : null; };
+        const save = () => localStorage.setItem('liftlog2', JSON.stringify(data));
+
+        // Nav
+        document.querySelectorAll('.nav button').forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+                $('screen-' + btn.dataset.screen).classList.add('active');
+                if (btn.dataset.screen === 'history') renderHistory();
+                if (btn.dataset.screen === 'progress') renderProgress();
+            };
+        });
+
+        // Day selection
+        document.querySelectorAll('.day-btn').forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedDay = btn.dataset.day;
+                buildForm();
+            };
+        });
+
+        // Build form
+        function buildForm() {
+            if (!selectedDay) { exEl.innerHTML = ''; return; }
+            const tmpl = TEMPLATES[selectedDay];
+            current = { day: selectedDay, lift: tmpl.name, exercises: tmpl.exercises.map(ex => {
+                const prev = getPrev(selectedDay, ex.name);
+                if (ex.type === 'check') return { ...ex, done: false };
+                if (ex.type === 'timed') {
+                    let sets = prev?.sets ? prev.sets.map(s => ({w: s.w||'', t: s.t||''})) : Array(ex.sets).fill().map(() => ({w:'',t:''}));
+                    return { ...ex, setsData: sets };
+                }
+                let sets = prev?.sets ? prev.sets.map(s => ({w: s.w||'', r: s.r||ex.reps, warmup: s.warmup||false})) : Array(ex.sets).fill().map(() => ({w:'',r:ex.reps,warmup:false}));
+                while (sets.length < ex.sets) sets.push({w:'',r:ex.reps,warmup:false});
+                return { ...ex, setsData: sets };
+            })};
+            renderForm();
+        }
+
+        // Render form
+        function renderForm() {
+            let html = '';
+            current.exercises.forEach((ex, ei) => {
+                const done = ex.type === 'check' ? ex.done : ex.setsData?.some(s => s.w);
+                html += `<div class="ex-card ${done?'done':''}"><div class="ex-head"><span class="ex-name">${ex.name}</span><span class="ex-rx">${ex.sets}x${ex.reps||'max'}</span></div><div class="ex-hint">${ex.hint}</div>`;
+                if (ex.type === 'check') {
+                    html += `<div class="check-row"><button class="check-btn ${ex.done?'checked':''}" data-ei="${ei}">${ex.done?'✓':''}</button><span>Tik als gedaan</span></div>`;
+                } else if (ex.type === 'timed') {
+                    ex.setsData.forEach((s, si) => {
+                        html += `<div class="set-row"><span class="set-num">${si+1}:</span><input class="set-input" data-ei="${ei}" data-si="${si}" data-f="w" placeholder="${ex.phW||'BW'}" value="${s.w||''}"><span class="set-unit">kg</span><input class="set-input" data-ei="${ei}" data-si="${si}" data-f="t" placeholder="${ex.phT||''}" value="${s.t||''}"><span class="set-unit">sec</span></div>`;
+                    });
+                } else {
+                    ex.setsData.forEach((s, si) => {
+                        html += `<div class="set-row"><span class="set-num">${si+1}:</span><input class="set-input ${s.warmup?'warmup':''}" data-ei="${ei}" data-si="${si}" data-f="w" placeholder="${ex.ph||''}" value="${s.w||''}"><span class="set-unit">kg</span><input class="set-input ${s.warmup?'warmup':''}" data-ei="${ei}" data-si="${si}" data-f="r" placeholder="${ex.reps||''}" value="${s.r||''}"><span class="set-unit">reps</span><button class="warmup-btn ${s.warmup?'active':''}" data-ei="${ei}" data-si="${si}">w-up</button></div>`;
+                    });
+                    html += `<button class="add-btn" data-ei="${ei}">+</button>`;
+                }
+                html += '</div>';
+            });
+            exEl.innerHTML = html;
+            
+            // Listeners
+            exEl.querySelectorAll('.set-input').forEach(inp => {
+                inp.oninput = () => { current.exercises[+inp.dataset.ei].setsData[+inp.dataset.si][inp.dataset.f] = inp.value; updateSave(); };
+                inp.onfocus = () => inp.select();
+            });
+            exEl.querySelectorAll('.check-btn').forEach(btn => {
+                btn.onclick = () => { current.exercises[+btn.dataset.ei].done = !current.exercises[+btn.dataset.ei].done; renderForm(); };
+            });
+            exEl.querySelectorAll('.warmup-btn').forEach(btn => {
+                btn.onclick = () => { current.exercises[+btn.dataset.ei].setsData[+btn.dataset.si].warmup = !current.exercises[+btn.dataset.ei].setsData[+btn.dataset.si].warmup; renderForm(); };
+            });
+            exEl.querySelectorAll('.add-btn').forEach(btn => {
+                btn.onclick = () => { const ex = current.exercises[+btn.dataset.ei]; ex.setsData.push({w:'',r:ex.reps||'',warmup:false}); renderForm(); };
+            });
+            updateSave();
+        }
+
+        function updateSave() {
+            if (!current) { saveBtn.disabled = true; return; }
+            saveBtn.disabled = !current.exercises.some(ex => ex.type === 'check' ? ex.done : ex.setsData?.some(s => s.w));
+        }
+
+        // Save
+        saveBtn.onclick = () => {
+            if (!current) return;
+            const training = {
+                id: Date.now(),
+                date: dateInput.value,
+                day: current.day,
+                lift: current.lift,
+                week: +$('week-num').textContent,
+                exercises: current.exercises.map(ex => {
+                    if (ex.type === 'check') return { name: ex.name, type: 'check', done: ex.done };
+                    return { name: ex.name, type: ex.type, sets: ex.setsData.filter(s => s.w || s.t).map(s => ex.type === 'timed' ? {w:s.w,t:s.t} : {w:s.w,r:s.r,warmup:s.warmup}) };
+                }).filter(ex => ex.type === 'check' ? ex.done : ex.sets?.length)
+            };
+            data.unshift(training);
+            save();
+            showToast('Opgeslagen!');
+            updateWeekSelect();
+            document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
+            selectedDay = null; current = null; exEl.innerHTML = ''; saveBtn.disabled = true;
+        };
+
+        // History
+        function renderHistory() {
+            const el = $('history');
+            if (!data.length) { el.innerHTML = '<div class="empty">Nog geen trainingen</div>'; return; }
+            el.innerHTML = data.map((t, i) => {
+                const main = t.exercises.find(e => ['Back Squat','Bench Press','Conventional Deadlift','Push Press'].includes(e.name));
+                let top = '-';
+                if (main?.sets) { const ws = main.sets.filter(s => !s.warmup); const last = ws[ws.length-1]; if (last) top = last.w + 'kg' + (last.r ? ' x '+last.r : ''); }
+                return `<div class="hist-card" data-idx="${i}"><div class="hist-top"><span class="hist-date">${fmtDate(t.date)}</span><span class="hist-day ${t.day}">Dag ${t.day}</span></div><div class="hist-lift">${t.lift}</div><div class="hist-summary">Topset: ${top}</div></div>`;
+            }).join('');
+            el.querySelectorAll('.hist-card').forEach(c => { c.onclick = () => openModal(+c.dataset.idx); });
+        }
+
+        // Modal
+        function openModal(idx) {
+            editIdx = idx;
+            editData = JSON.parse(JSON.stringify(data[idx]));
+            $('modal-title').textContent = editData.lift + ' — Dag ' + editData.day;
+            $('modal-date').textContent = fmtDate(editData.date) + ' | Week ' + editData.week;
+            renderModal();
+            modal.classList.add('show');
+        }
+
+        function renderModal() {
+            let html = '';
+            editData.exercises.forEach((ex, ei) => {
+                html += `<div class="ex-card"><div class="ex-head"><span class="ex-name">${ex.name}</span></div>`;
+                if (ex.type === 'check') {
+                    html += `<div class="check-row"><button class="check-btn ${ex.done?'checked':''}" data-mei="${ei}">${ex.done?'✓':''}</button><span>${ex.done?'Gedaan':'Niet gedaan'}</span></div>`;
+                } else if (ex.sets) {
+                    ex.sets.forEach((s, si) => {
+                        if (ex.type === 'timed') {
+                            html += `<div class="set-row"><span class="set-num">${si+1}:</span><input class="set-input" data-mei="${ei}" data-msi="${si}" data-mf="w" value="${s.w||''}"><span class="set-unit">kg</span><input class="set-input" data-mei="${ei}" data-msi="${si}" data-mf="t" value="${s.t||''}"><span class="set-unit">sec</span></div>`;
+                        } else {
+                            html += `<div class="set-row"><span class="set-num">${si+1}:</span><input class="set-input ${s.warmup?'warmup':''}" data-mei="${ei}" data-msi="${si}" data-mf="w" value="${s.w||''}"><span class="set-unit">kg</span><input class="set-input ${s.warmup?'warmup':''}" data-mei="${ei}" data-msi="${si}" data-mf="r" value="${s.r||''}"><span class="set-unit">reps</span><button class="warmup-btn ${s.warmup?'active':''}" data-mei="${ei}" data-msi="${si}">w-up</button></div>`;
+                        }
+                    });
+                }
+                html += '</div>';
+            });
+            modalBody.innerHTML = html;
+            
+            modalBody.querySelectorAll('.set-input').forEach(inp => {
+                inp.oninput = () => { editData.exercises[+inp.dataset.mei].sets[+inp.dataset.msi][inp.dataset.mf] = inp.value; };
+                inp.onfocus = () => inp.select();
+            });
+            modalBody.querySelectorAll('.check-btn').forEach(btn => {
+                btn.onclick = () => { editData.exercises[+btn.dataset.mei].done = !editData.exercises[+btn.dataset.mei].done; renderModal(); };
+            });
+            modalBody.querySelectorAll('.warmup-btn').forEach(btn => {
+                btn.onclick = () => { editData.exercises[+btn.dataset.mei].sets[+btn.dataset.msi].warmup = !editData.exercises[+btn.dataset.mei].sets[+btn.dataset.msi].warmup; renderModal(); };
+            });
+        }
+
+        function closeModal() { modal.classList.remove('show'); editIdx = null; editData = null; }
+        $('modal-close').onclick = closeModal;
+        $('btn-cancel').onclick = closeModal;
+        $('btn-save').onclick = () => { data[editIdx] = editData; save(); showToast('Gewijzigd!'); closeModal(); renderHistory(); };
+        $('btn-delete').onclick = () => {
+            if (confirm('Training verwijderen?\n\n' + editData.lift + ' — ' + fmtDate(editData.date))) {
+                data.splice(editIdx, 1);
+                save();
+                showToast('Verwijderd!');
+                closeModal();
+                renderHistory();
+                updateWeekSelect();
+            }
+        };
+        modal.onclick = e => { if (e.target === modal) closeModal(); };
+
+        // Progress
+        document.querySelectorAll('.prog-btn').forEach(btn => {
+            btn.onclick = () => { document.querySelectorAll('.prog-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); renderProgress(btn.dataset.lift); };
+        });
+
+        function renderProgress(lift = 'Back Squat') {
+            const el = $('progress');
+            const rows = data.filter(t => t.exercises.some(e => e.name === lift)).map(t => {
+                const ex = t.exercises.find(e => e.name === lift);
+                const ws = ex.sets?.filter(s => !s.warmup) || [];
+                const max = ws.length ? Math.max(...ws.map(s => parseFloat(s.w)||0)) : 0;
+                return { date: t.date, val: max };
+            }).reverse().slice(-8);
+            if (!rows.length) { el.innerHTML = '<div class="empty">Geen data</div>'; return; }
+            const max = Math.max(...rows.map(r => r.val));
+            el.innerHTML = rows.map(r => `<div class="prog-row"><span class="prog-date">${r.date.slice(5)}</span><div class="prog-bar-bg"><div class="prog-bar" style="width:${(r.val/max)*100}%"></div></div><span class="prog-val">${r.val}</span></div>`).join('');
+        }
+
+        // Export
+        function updateWeekSelect() {
+            const weeks = [...new Set(data.map(t => t.week))].sort((a,b) => a-b);
+            $('week-select').innerHTML = '<option value="all">Alle weken</option>' + weeks.map(w => `<option value="${w}">Week ${w}</option>`).join('');
+        }
+        updateWeekSelect();
+
+        $('export-btn').onclick = () => {
+            if (!data.length) { showToast('Geen data'); return; }
+            const wk = $('week-select').value;
+            const exp = wk === 'all' ? data : data.filter(t => t.week == wk);
+            if (!exp.length) { showToast('Geen data'); return; }
+            let csv = 'Datum,Dag,Lift,Week,Oefening,Type,Set,Gewicht,Reps,Tijd,Warmup\n';
+            exp.forEach(t => {
+                t.exercises.forEach(ex => {
+                    if (ex.type === 'check') csv += `${t.date},${t.day},${t.lift},${t.week},${ex.name},check,,,,,${ex.done}\n`;
+                    else ex.sets?.forEach((s,i) => { csv += `${t.date},${t.day},${t.lift},${t.week},${ex.name},${ex.type},${i+1},${s.w||''},${s.r||''},${s.t||''},${s.warmup?'ja':'nee'}\n`; });
+                });
+            });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+            a.download = `liftlog_${wk==='all'?'all':'week'+wk}_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            showToast('Geëxporteerd!');
+        };
+
+        // Import
+        $('import-btn').onclick = () => $('file-input').click();
+        $('file-input').onchange = e => {
+            const file = e.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+                try {
+                    const lines = ev.target.result.split('\n').filter(l => l.trim());
+                    if (lines.length < 2) { showToast('Leeg'); return; }
+                    const imp = {};
+                    for (let i = 1; i < lines.length; i++) {
+                        const [date,day,lift,week,exName,type,setNum,w,r,t,warmup] = lines[i].split(',');
+                        const key = date+'_'+day;
+                        if (!imp[key]) imp[key] = {id:Date.now()+i,date,day,lift,week:+week||1,exercises:[]};
+                        let ex = imp[key].exercises.find(e => e.name === exName);
+                        if (!ex) { ex = {name:exName,type,sets:[],done:false}; imp[key].exercises.push(ex); }
+                        if (type === 'check') ex.done = warmup==='true'||warmup==='ja';
+                        else if (setNum) ex.sets.push({w:w||'',r:r||'',t:t||'',warmup:warmup==='ja'});
+                    }
+                    const arr = Object.values(imp).sort((a,b) => new Date(b.date)-new Date(a.date));
+                    if (!arr.length) { showToast('Geen data'); return; }
+                    if (confirm(`${arr.length} trainingen.\n\nOK = Toevoegen\nAnnuleren = Vervangen`)) {
+                        const keys = new Set(data.map(t => t.date+'_'+t.day));
+                        data = [...data, ...arr.filter(t => !keys.has(t.date+'_'+t.day))].sort((a,b) => new Date(b.date)-new Date(a.date));
+                    } else data = arr;
+                    save(); showToast('Geïmporteerd!'); updateWeekSelect(); renderHistory();
+                } catch(err) { console.error(err); showToast('Fout'); }
+            };
+            reader.readAsText(file);
+            e.target.value = '';
+        };
+
+        // Init
+        renderHistory();
+    })();
+    </script>
+</body>
+</html>
