@@ -404,7 +404,13 @@
             // Listeners
             exEl.querySelectorAll('.set-input').forEach(inp => {
                 inp.oninput = () => { 
-                    current.exercises[+inp.dataset.ei].setsData[+inp.dataset.si][inp.dataset.f] = inp.value; 
+                    // Only allow numbers, decimal point, and BW
+                    let val = inp.value.toUpperCase();
+                    if (val !== 'BW' && val !== 'B') {
+                        val = val.replace(/[^0-9.,]/g, '').replace(',', '.');
+                    }
+                    inp.value = val;
+                    current.exercises[+inp.dataset.ei].setsData[+inp.dataset.si][inp.dataset.f] = val; 
                     updateSave(); 
                 };
                 inp.onfocus = () => inp.select();
@@ -524,7 +530,15 @@
             modalBody.innerHTML = html;
             
             modalBody.querySelectorAll('.set-input').forEach(inp => {
-                inp.oninput = () => { editData.exercises[+inp.dataset.mei].sets[+inp.dataset.msi][inp.dataset.mf] = inp.value; };
+                inp.oninput = () => { 
+                    // Only allow numbers, decimal point, and BW
+                    let val = inp.value.toUpperCase();
+                    if (val !== 'BW' && val !== 'B') {
+                        val = val.replace(/[^0-9.,]/g, '').replace(',', '.');
+                    }
+                    inp.value = val;
+                    editData.exercises[+inp.dataset.mei].sets[+inp.dataset.msi][inp.dataset.mf] = val; 
+                };
                 inp.onfocus = () => inp.select();
             });
             modalBody.querySelectorAll('.check-btn').forEach(btn => {
