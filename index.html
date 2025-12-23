@@ -15,6 +15,7 @@
             --text: #f5f5f5; --text2: #a0a0a0; --text3: #606060;
             --border: #2a2a2a; --accent: #f59e0b; --success: #22c55e; --danger: #ef4444;
             --blue: #3b82f6; --red: #ef4444; --green: #22c55e; --purple: #a855f7;
+            --skip: #6b7280;
         }
         body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
         
@@ -39,6 +40,7 @@
         .day-btn { padding: 0.75rem 0.5rem; border: 2px solid var(--border); background: var(--bg2); color: var(--text2); font-size: 0.75rem; font-weight: 600; border-radius: 0.75rem; cursor: pointer; text-align: center; }
         .day-btn span { font-size: 1.25rem; display: block; margin-bottom: 0.125rem; }
         .day-btn.active { border-color: var(--accent); color: var(--text); }
+        .day-btn.has-data { border-color: var(--success); }
         
         /* Date */
         .date-row { margin-bottom: 1rem; }
@@ -48,13 +50,23 @@
         /* Exercise Card */
         .ex-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1rem; margin-bottom: 0.75rem; }
         .ex-card.done { border-color: var(--success); }
-        .ex-head { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
+        .ex-card.skipped { border-color: var(--skip); opacity: 0.6; }
+        .ex-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; }
         .ex-name { font-weight: 600; font-size: 0.9375rem; }
         .ex-rx { font-size: 0.75rem; color: var(--text2); background: var(--bg3); padding: 0.25rem 0.5rem; border-radius: 0.25rem; }
         .ex-hint { font-size: 0.75rem; color: var(--text3); margin-bottom: 0.75rem; }
         
+        /* Skip button */
+        .skip-btn { padding: 0.25rem 0.5rem; font-size: 0.625rem; background: transparent; border: 1px solid var(--border); border-radius: 0.25rem; color: var(--text3); cursor: pointer; margin-left: 0.5rem; }
+        .skip-btn.active { border-color: var(--skip); color: var(--skip); background: rgba(107,114,128,0.2); }
+        
+        /* Equipment selector */
+        .equip-row { display: flex; gap: 0.25rem; margin-bottom: 0.75rem; }
+        .equip-btn { padding: 0.25rem 0.5rem; font-size: 0.625rem; background: var(--bg3); border: 1px solid var(--border); border-radius: 0.25rem; color: var(--text3); cursor: pointer; }
+        .equip-btn.active { border-color: var(--accent); color: var(--accent); }
+        
         /* Set Row */
-        .set-row { display: flex; align-items: center; gap: 0.375rem; margin-bottom: 0.5rem; }
+        .set-row { display: flex; align-items: center; gap: 0.375rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
         .set-num { width: 1.5rem; font-size: 0.75rem; color: var(--text3); }
         .set-input { width: 3.5rem; padding: 0.5rem 0.25rem; background: var(--bg3); border: 1px solid var(--border); border-radius: 0.375rem; color: var(--text); font-size: 0.875rem; text-align: center; }
         .set-input:focus { outline: none; border-color: var(--accent); }
@@ -63,6 +75,10 @@
         .warmup-btn { padding: 0.25rem 0.5rem; font-size: 0.625rem; background: transparent; border: 1px solid var(--border); border-radius: 0.25rem; color: var(--text3); cursor: pointer; }
         .warmup-btn.active { border-color: var(--accent); color: var(--accent); }
         .add-btn { width: 2.5rem; height: 2rem; border: 1px dashed var(--border); background: transparent; color: var(--text3); border-radius: 0.375rem; cursor: pointer; font-size: 1.25rem; margin-top: 0.25rem; }
+        
+        /* Notes */
+        .notes-input { width: 100%; margin-top: 0.5rem; padding: 0.5rem; background: var(--bg3); border: 1px solid var(--border); border-radius: 0.375rem; color: var(--text); font-size: 0.75rem; resize: none; min-height: 2.5rem; }
+        .notes-input::placeholder { color: var(--text3); }
         
         /* Check */
         .check-row { display: flex; align-items: center; gap: 0.75rem; }
@@ -136,7 +152,7 @@
     <main class="main">
         <section id="screen-new" class="screen active">
             <div class="week-bar">Week <span id="week-num">1</span> | RPE 6-7</div>
-            <div class="days">
+            <div class="days" id="day-btns">
                 <button class="day-btn" data-day="A"><span>A</span>Squat</button>
                 <button class="day-btn" data-day="B"><span>B</span>Bench</button>
                 <button class="day-btn" data-day="C"><span>C</span>Deadlift</button>
@@ -196,12 +212,16 @@
     (function() {
         'use strict';
 
+        // Equipment types for exercises that can use different equipment
+        const EQUIP_EXERCISES = ['Goblet Squat', 'Incline DB Press', 'Dumbbell Row', 'Bulgarian Split Squat'];
+        const EQUIP_OPTIONS = ['DB', 'KB', 'BB'];
+
         // Templates
         const TEMPLATES = {
             A: { name: 'Squat', exercises: [
                 { name: 'Back Squat', sets: 4, reps: 5, type: 'weight', hint: 'Diepte boven gewicht', ph: '60' },
                 { name: 'Romanian Deadlift', sets: 3, reps: 10, type: 'weight', hint: 'Hamstrings voelen', ph: '70' },
-                { name: 'Incline DB Press', sets: 3, reps: 10, type: 'weight', hint: 'Bank 30-45°', ph: '56' },
+                { name: 'Incline DB Press', sets: 3, reps: 10, type: 'weight', hint: 'Bank 30-45°', ph: '56', hasEquip: true },
                 { name: 'Cable Row', sets: 3, reps: 10, type: 'weight', hint: 'Scapula squeeze', ph: '85' },
                 { name: 'Dead Hang', sets: 1, reps: null, type: 'timed', hint: 'Max hold', phW: 'BW', phT: '50' }
             ]},
@@ -209,7 +229,7 @@
                 { name: 'Scapula Retractions', sets: 2, reps: 15, type: 'check', hint: 'Activatie' },
                 { name: 'Bench Press', sets: 4, reps: 5, type: 'weight', hint: 'Schouderbladen gepind', ph: '85' },
                 { name: 'Chest Supported Row', sets: 3, reps: 10, type: 'weight', hint: 'Scapula focus', ph: '45' },
-                { name: 'Bulgarian Split Squat', sets: 3, reps: 10, type: 'weight', hint: 'Per been', ph: '20' },
+                { name: 'Bulgarian Split Squat', sets: 3, reps: 10, type: 'weight', hint: 'Per been', ph: '20', hasEquip: true },
                 { name: 'Face Pulls', sets: 2, reps: 15, type: 'weight', hint: 'Ellebogen hoog', ph: '45' },
                 { name: 'BTBBH', sets: 2, reps: null, type: 'timed', hint: '2x max hold', phW: '60', phT: '60' }
             ]},
@@ -217,7 +237,7 @@
                 { name: 'Hip Hinge met stok', sets: 2, reps: 8, type: 'check', hint: 'Techniek check' },
                 { name: 'Conventional Deadlift', sets: 4, reps: 5, type: 'weight', hint: 'Rug neutraal!', ph: '110' },
                 { name: 'Leg Press uni', sets: 3, reps: 10, type: 'weight', hint: 'Voet hoog', ph: '70' },
-                { name: 'Dumbbell Row', sets: 3, reps: 10, type: 'weight', hint: 'Per arm', ph: '26' },
+                { name: 'Dumbbell Row', sets: 3, reps: 10, type: 'weight', hint: 'Per arm', ph: '26', hasEquip: true },
                 { name: 'Dips', sets: 3, reps: 10, type: 'weight', hint: 'BW = bodyweight', ph: 'BW' },
                 { name: 'Dead Hang', sets: 1, reps: null, type: 'timed', hint: 'Decompressie', phW: 'BW', phT: '50' }
             ]},
@@ -225,7 +245,7 @@
                 { name: 'Scapula Retractions', sets: 2, reps: 15, type: 'check', hint: 'Activatie' },
                 { name: 'Push Press', sets: 4, reps: 5, type: 'weight', hint: 'Explosief uit dip', ph: '50' },
                 { name: 'Lat Pulldown', sets: 3, reps: 10, type: 'weight', hint: 'Voorzichtig lat!', ph: '55' },
-                { name: 'Goblet Squat', sets: 3, reps: 10, type: 'weight', hint: 'Core aan', ph: '22' },
+                { name: 'Goblet Squat', sets: 3, reps: 10, type: 'weight', hint: 'Core aan', ph: '22', hasEquip: true },
                 { name: 'Seated Cable Row', sets: 3, reps: 10, type: 'weight', hint: 'Scapula squeeze', ph: '80' },
                 { name: 'BTBBH', sets: 2, reps: null, type: 'timed', hint: '2x max hold', phW: '60', phT: '60' }
             ]}
@@ -233,7 +253,15 @@
 
         // Initial data
         const INIT = [
-            { id: 1, date: '2025-12-20', day: 'C', lift: 'Deadlift', week: 1, exercises: [
+            { id: 1, date: '2025-12-22', day: 'D', lift: 'Push Press', week: 2, exercises: [
+                { name: 'Scapula Retractions', type: 'check', done: true },
+                { name: 'Push Press', type: 'weight', sets: [{w:'20',r:'10',warmup:true},{w:'30',r:'10',warmup:true},{w:'40',r:'5'},{w:'45',r:'5'},{w:'50',r:'5'}]},
+                { name: 'Lat Pulldown', type: 'weight', sets: [{w:'75',r:'10'},{w:'85',r:'10'},{w:'95',r:'10'}]},
+                { name: 'Goblet Squat', type: 'weight', sets: [{w:'20',r:'10'},{w:'28',r:'10'},{w:'32',r:'10'}], equip: 'KB'},
+                { name: 'Seated Cable Row', type: 'weight', sets: [{w:'75',r:'10'},{w:'85',r:'10'},{w:'95',r:'10'}]},
+                { name: 'BTBBH', type: 'timed', sets: [], skipped: true, skipReason: 'Geen mogelijkheid in gym'}
+            ]},
+            { id: 2, date: '2025-12-20', day: 'C', lift: 'Deadlift', week: 1, exercises: [
                 { name: 'Hip Hinge met stok', type: 'check', done: true },
                 { name: 'Conventional Deadlift', type: 'weight', sets: [{w:'70',r:'5',warmup:true},{w:'90',r:'5'},{w:'100',r:'5'},{w:'110',r:'5'}]},
                 { name: 'Leg Press uni', type: 'weight', sets: [{w:'40',r:'10'},{w:'60',r:'10'},{w:'70',r:'10'}]},
@@ -241,7 +269,7 @@
                 { name: 'Dips', type: 'weight', sets: [{w:'BW',r:'10'},{w:'BW',r:'10'},{w:'BW',r:'10'}]},
                 { name: 'Dead Hang', type: 'timed', sets: [{w:'BW',t:'50'}]}
             ]},
-            { id: 2, date: '2025-12-17', day: 'B', lift: 'Bench Press', week: 1, exercises: [
+            { id: 3, date: '2025-12-17', day: 'B', lift: 'Bench Press', week: 1, exercises: [
                 { name: 'Scapula Retractions', type: 'check', done: true },
                 { name: 'Bench Press', type: 'weight', sets: [{w:'20',r:'5',warmup:true},{w:'50',r:'5'},{w:'70',r:'5'},{w:'80',r:'5'},{w:'85',r:'5'},{w:'90',r:'5'}]},
                 { name: 'Chest Supported Row', type: 'weight', sets: [{w:'30',r:'10'},{w:'40',r:'10'},{w:'50',r:'10'}]},
@@ -249,7 +277,7 @@
                 { name: 'Face Pulls', type: 'weight', sets: [{w:'40',r:'15'},{w:'45',r:'15'}]},
                 { name: 'BTBBH', type: 'timed', sets: [{w:'60',t:'60'},{w:'60',t:'40'}]}
             ]},
-            { id: 3, date: '2025-12-15', day: 'A', lift: 'Squat', week: 1, exercises: [
+            { id: 4, date: '2025-12-15', day: 'A', lift: 'Squat', week: 1, exercises: [
                 { name: 'Back Squat', type: 'weight', sets: [{w:'20',r:'5',warmup:true},{w:'40',r:'5'},{w:'50',r:'5'},{w:'60',r:'5'}]},
                 { name: 'Romanian Deadlift', type: 'weight', sets: [{w:'20',r:'10',warmup:true},{w:'50',r:'10'},{w:'70',r:'10'},{w:'80',r:'10'}]},
                 { name: 'Incline DB Press', type: 'weight', sets: [{w:'48',r:'10'},{w:'56',r:'10'},{w:'60',r:'10'}]},
@@ -259,8 +287,8 @@
         ];
 
         // State
-        let data = JSON.parse(localStorage.getItem('liftlog2')) || INIT;
-        if (!localStorage.getItem('liftlog2')) localStorage.setItem('liftlog2', JSON.stringify(INIT));
+        let data = JSON.parse(localStorage.getItem('liftlog3')) || INIT;
+        if (!localStorage.getItem('liftlog3')) localStorage.setItem('liftlog3', JSON.stringify(INIT));
         let selectedDay = null;
         let current = null;
         let editIdx = null;
@@ -284,7 +312,16 @@
         const showToast = msg => { toast.textContent = msg; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2000); };
         const fmtDate = d => { const dt = new Date(d); return ['Zo','Ma','Di','Wo','Do','Vr','Za'][dt.getDay()] + ' ' + dt.getDate() + '-' + (dt.getMonth()+1); };
         const getPrev = (day, name) => { const t = data.find(x => x.day === day); return t ? t.exercises.find(e => e.name === name) : null; };
-        const save = () => localStorage.setItem('liftlog2', JSON.stringify(data));
+        const save = () => localStorage.setItem('liftlog3', JSON.stringify(data));
+
+        // Update day buttons to show which have data
+        function updateDayButtons() {
+            const daysWithData = new Set(data.map(t => t.day));
+            document.querySelectorAll('.day-btn').forEach(btn => {
+                btn.classList.toggle('has-data', daysWithData.has(btn.dataset.day));
+            });
+        }
+        updateDayButtons();
 
         // Nav
         document.querySelectorAll('.nav button').forEach(btn => {
@@ -314,14 +351,14 @@
             const tmpl = TEMPLATES[selectedDay];
             current = { day: selectedDay, lift: tmpl.name, exercises: tmpl.exercises.map(ex => {
                 const prev = getPrev(selectedDay, ex.name);
-                if (ex.type === 'check') return { ...ex, done: false };
+                if (ex.type === 'check') return { ...ex, done: false, skipped: false, notes: '' };
                 if (ex.type === 'timed') {
-                    let sets = prev?.sets ? prev.sets.map(s => ({w: s.w||'', t: s.t||''})) : Array(ex.sets).fill().map(() => ({w:'',t:''}));
-                    return { ...ex, setsData: sets };
+                    let sets = prev?.sets && prev.sets.length ? prev.sets.map(s => ({w: s.w||'', t: s.t||''})) : Array(ex.sets).fill().map(() => ({w:'',t:''}));
+                    return { ...ex, setsData: sets, skipped: false, notes: '', equip: prev?.equip || '' };
                 }
-                let sets = prev?.sets ? prev.sets.map(s => ({w: s.w||'', r: s.r||ex.reps, warmup: s.warmup||false})) : Array(ex.sets).fill().map(() => ({w:'',r:ex.reps,warmup:false}));
+                let sets = prev?.sets && prev.sets.length ? prev.sets.map(s => ({w: s.w||'', r: s.r||ex.reps, warmup: s.warmup||false})) : Array(ex.sets).fill().map(() => ({w:'',r:ex.reps,warmup:false}));
                 while (sets.length < ex.sets) sets.push({w:'',r:ex.reps,warmup:false});
-                return { ...ex, setsData: sets };
+                return { ...ex, setsData: sets, skipped: false, notes: '', equip: prev?.equip || '' };
             })};
             renderForm();
         }
@@ -330,27 +367,46 @@
         function renderForm() {
             let html = '';
             current.exercises.forEach((ex, ei) => {
-                const done = ex.type === 'check' ? ex.done : ex.setsData?.some(s => s.w);
-                html += `<div class="ex-card ${done?'done':''}"><div class="ex-head"><span class="ex-name">${ex.name}</span><span class="ex-rx">${ex.sets}x${ex.reps||'max'}</span></div><div class="ex-hint">${ex.hint}</div>`;
-                if (ex.type === 'check') {
-                    html += `<div class="check-row"><button class="check-btn ${ex.done?'checked':''}" data-ei="${ei}">${ex.done?'✓':''}</button><span>Tik als gedaan</span></div>`;
-                } else if (ex.type === 'timed') {
-                    ex.setsData.forEach((s, si) => {
-                        html += `<div class="set-row"><span class="set-num">${si+1}:</span><input class="set-input" data-ei="${ei}" data-si="${si}" data-f="w" placeholder="${ex.phW||'BW'}" value="${s.w||''}"><span class="set-unit">kg</span><input class="set-input" data-ei="${ei}" data-si="${si}" data-f="t" placeholder="${ex.phT||''}" value="${s.t||''}"><span class="set-unit">sec</span></div>`;
-                    });
-                } else {
-                    ex.setsData.forEach((s, si) => {
-                        html += `<div class="set-row"><span class="set-num">${si+1}:</span><input class="set-input ${s.warmup?'warmup':''}" data-ei="${ei}" data-si="${si}" data-f="w" placeholder="${ex.ph||''}" value="${s.w||''}"><span class="set-unit">kg</span><input class="set-input ${s.warmup?'warmup':''}" data-ei="${ei}" data-si="${si}" data-f="r" placeholder="${ex.reps||''}" value="${s.r||''}"><span class="set-unit">reps</span><button class="warmup-btn ${s.warmup?'active':''}" data-ei="${ei}" data-si="${si}">w-up</button></div>`;
-                    });
-                    html += `<button class="add-btn" data-ei="${ei}">+</button>`;
+                const done = ex.skipped ? false : (ex.type === 'check' ? ex.done : ex.setsData?.some(s => s.w || s.t));
+                const cardClass = ex.skipped ? 'skipped' : (done ? 'done' : '');
+                html += `<div class="ex-card ${cardClass}"><div class="ex-head"><div><span class="ex-name">${ex.name}</span><button class="skip-btn ${ex.skipped?'active':''}" data-ei="${ei}">${ex.skipped?'⏭️ Overgeslagen':'Skip'}</button></div><span class="ex-rx">${ex.sets}x${ex.reps||'max'}</span></div><div class="ex-hint">${ex.hint}</div>`;
+                
+                if (!ex.skipped) {
+                    // Equipment selector for applicable exercises
+                    if (ex.hasEquip) {
+                        html += `<div class="equip-row">`;
+                        EQUIP_OPTIONS.forEach(eq => {
+                            html += `<button class="equip-btn ${ex.equip===eq?'active':''}" data-ei="${ei}" data-eq="${eq}">${eq}</button>`;
+                        });
+                        html += `</div>`;
+                    }
+                    
+                    if (ex.type === 'check') {
+                        html += `<div class="check-row"><button class="check-btn ${ex.done?'checked':''}" data-ei="${ei}">${ex.done?'✓':''}</button><span>Tik als gedaan</span></div>`;
+                    } else if (ex.type === 'timed') {
+                        ex.setsData.forEach((s, si) => {
+                            html += `<div class="set-row"><span class="set-num">${si+1}:</span><input type="text" inputmode="decimal" class="set-input" data-ei="${ei}" data-si="${si}" data-f="w" placeholder="${ex.phW||'BW'}" value="${s.w||''}"><span class="set-unit">kg</span><input type="text" inputmode="numeric" class="set-input" data-ei="${ei}" data-si="${si}" data-f="t" placeholder="${ex.phT||''}" value="${s.t||''}"><span class="set-unit">sec</span></div>`;
+                        });
+                    } else {
+                        ex.setsData.forEach((s, si) => {
+                            html += `<div class="set-row"><span class="set-num">${si+1}:</span><input type="text" inputmode="decimal" class="set-input ${s.warmup?'warmup':''}" data-ei="${ei}" data-si="${si}" data-f="w" placeholder="${ex.ph||''}" value="${s.w||''}"><span class="set-unit">kg</span><input type="text" inputmode="numeric" class="set-input ${s.warmup?'warmup':''}" data-ei="${ei}" data-si="${si}" data-f="r" placeholder="${ex.reps||''}" value="${s.r||''}"><span class="set-unit">reps</span><button class="warmup-btn ${s.warmup?'active':''}" data-ei="${ei}" data-si="${si}">w-up</button></div>`;
+                        });
+                        html += `<button class="add-btn" data-ei="${ei}">+</button>`;
+                    }
                 }
+                
+                // Notes field
+                html += `<textarea class="notes-input" data-ei="${ei}" placeholder="Notities...">${ex.notes||''}</textarea>`;
                 html += '</div>';
             });
             exEl.innerHTML = html;
             
             // Listeners
             exEl.querySelectorAll('.set-input').forEach(inp => {
-                inp.oninput = () => { current.exercises[+inp.dataset.ei].setsData[+inp.dataset.si][inp.dataset.f] = inp.value; updateSave(); };
+                inp.oninput = () => { 
+                    current.exercises[+inp.dataset.ei].setsData[+inp.dataset.si][inp.dataset.f] = inp.value; 
+                    updateSave(); 
+                };
                 inp.onfocus = () => inp.select();
             });
             exEl.querySelectorAll('.check-btn').forEach(btn => {
@@ -362,12 +418,26 @@
             exEl.querySelectorAll('.add-btn').forEach(btn => {
                 btn.onclick = () => { const ex = current.exercises[+btn.dataset.ei]; ex.setsData.push({w:'',r:ex.reps||'',warmup:false}); renderForm(); };
             });
+            exEl.querySelectorAll('.skip-btn').forEach(btn => {
+                btn.onclick = () => { current.exercises[+btn.dataset.ei].skipped = !current.exercises[+btn.dataset.ei].skipped; renderForm(); };
+            });
+            exEl.querySelectorAll('.equip-btn').forEach(btn => {
+                btn.onclick = () => { current.exercises[+btn.dataset.ei].equip = btn.dataset.eq; renderForm(); };
+            });
+            exEl.querySelectorAll('.notes-input').forEach(inp => {
+                inp.oninput = () => { current.exercises[+inp.dataset.ei].notes = inp.value; };
+            });
             updateSave();
         }
 
         function updateSave() {
             if (!current) { saveBtn.disabled = true; return; }
-            saveBtn.disabled = !current.exercises.some(ex => ex.type === 'check' ? ex.done : ex.setsData?.some(s => s.w));
+            const hasData = current.exercises.some(ex => {
+                if (ex.skipped) return true;
+                if (ex.type === 'check') return ex.done;
+                return ex.setsData?.some(s => s.w || s.t);
+            });
+            saveBtn.disabled = !hasData;
         }
 
         // Save
@@ -380,14 +450,23 @@
                 lift: current.lift,
                 week: +$('week-num').textContent,
                 exercises: current.exercises.map(ex => {
-                    if (ex.type === 'check') return { name: ex.name, type: 'check', done: ex.done };
-                    return { name: ex.name, type: ex.type, sets: ex.setsData.filter(s => s.w || s.t).map(s => ex.type === 'timed' ? {w:s.w,t:s.t} : {w:s.w,r:s.r,warmup:s.warmup}) };
-                }).filter(ex => ex.type === 'check' ? ex.done : ex.sets?.length)
+                    if (ex.type === 'check') return { name: ex.name, type: 'check', done: ex.done, skipped: ex.skipped, notes: ex.notes };
+                    const result = { 
+                        name: ex.name, 
+                        type: ex.type, 
+                        sets: ex.skipped ? [] : ex.setsData.filter(s => s.w || s.t).map(s => ex.type === 'timed' ? {w:s.w,t:s.t} : {w:s.w,r:s.r,warmup:s.warmup}),
+                        skipped: ex.skipped,
+                        notes: ex.notes
+                    };
+                    if (ex.equip) result.equip = ex.equip;
+                    return result;
+                }).filter(ex => ex.skipped || (ex.type === 'check' ? ex.done : ex.sets?.length))
             };
             data.unshift(training);
             save();
             showToast('Opgeslagen!');
             updateWeekSelect();
+            updateDayButtons();
             document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
             selectedDay = null; current = null; exEl.innerHTML = ''; saveBtn.disabled = true;
         };
@@ -399,7 +478,11 @@
             el.innerHTML = data.map((t, i) => {
                 const main = t.exercises.find(e => ['Back Squat','Bench Press','Conventional Deadlift','Push Press'].includes(e.name));
                 let top = '-';
-                if (main?.sets) { const ws = main.sets.filter(s => !s.warmup); const last = ws[ws.length-1]; if (last) top = last.w + 'kg' + (last.r ? ' x '+last.r : ''); }
+                if (main?.sets && main.sets.length) { 
+                    const ws = main.sets.filter(s => !s.warmup); 
+                    const last = ws[ws.length-1]; 
+                    if (last) top = last.w + 'kg' + (last.r ? ' x '+last.r : ''); 
+                }
                 return `<div class="hist-card" data-idx="${i}"><div class="hist-top"><span class="hist-date">${fmtDate(t.date)}</span><span class="hist-day ${t.day}">Dag ${t.day}</span></div><div class="hist-lift">${t.lift}</div><div class="hist-summary">Topset: ${top}</div></div>`;
             }).join('');
             el.querySelectorAll('.hist-card').forEach(c => { c.onclick = () => openModal(+c.dataset.idx); });
@@ -418,17 +501,23 @@
         function renderModal() {
             let html = '';
             editData.exercises.forEach((ex, ei) => {
-                html += `<div class="ex-card"><div class="ex-head"><span class="ex-name">${ex.name}</span></div>`;
-                if (ex.type === 'check') {
+                const cardClass = ex.skipped ? 'skipped' : '';
+                html += `<div class="ex-card ${cardClass}"><div class="ex-head"><span class="ex-name">${ex.name}</span>${ex.equip ? `<span class="ex-rx">${ex.equip}</span>` : ''}</div>`;
+                if (ex.skipped) {
+                    html += `<div style="color:var(--skip);font-size:0.75rem;">⏭️ Overgeslagen</div>`;
+                } else if (ex.type === 'check') {
                     html += `<div class="check-row"><button class="check-btn ${ex.done?'checked':''}" data-mei="${ei}">${ex.done?'✓':''}</button><span>${ex.done?'Gedaan':'Niet gedaan'}</span></div>`;
-                } else if (ex.sets) {
+                } else if (ex.sets && ex.sets.length) {
                     ex.sets.forEach((s, si) => {
                         if (ex.type === 'timed') {
-                            html += `<div class="set-row"><span class="set-num">${si+1}:</span><input class="set-input" data-mei="${ei}" data-msi="${si}" data-mf="w" value="${s.w||''}"><span class="set-unit">kg</span><input class="set-input" data-mei="${ei}" data-msi="${si}" data-mf="t" value="${s.t||''}"><span class="set-unit">sec</span></div>`;
+                            html += `<div class="set-row"><span class="set-num">${si+1}:</span><input type="text" inputmode="decimal" class="set-input" data-mei="${ei}" data-msi="${si}" data-mf="w" value="${s.w||''}"><span class="set-unit">kg</span><input type="text" inputmode="numeric" class="set-input" data-mei="${ei}" data-msi="${si}" data-mf="t" value="${s.t||''}"><span class="set-unit">sec</span></div>`;
                         } else {
-                            html += `<div class="set-row"><span class="set-num">${si+1}:</span><input class="set-input ${s.warmup?'warmup':''}" data-mei="${ei}" data-msi="${si}" data-mf="w" value="${s.w||''}"><span class="set-unit">kg</span><input class="set-input ${s.warmup?'warmup':''}" data-mei="${ei}" data-msi="${si}" data-mf="r" value="${s.r||''}"><span class="set-unit">reps</span><button class="warmup-btn ${s.warmup?'active':''}" data-mei="${ei}" data-msi="${si}">w-up</button></div>`;
+                            html += `<div class="set-row"><span class="set-num">${si+1}:</span><input type="text" inputmode="decimal" class="set-input ${s.warmup?'warmup':''}" data-mei="${ei}" data-msi="${si}" data-mf="w" value="${s.w||''}"><span class="set-unit">kg</span><input type="text" inputmode="numeric" class="set-input ${s.warmup?'warmup':''}" data-mei="${ei}" data-msi="${si}" data-mf="r" value="${s.r||''}"><span class="set-unit">reps</span><button class="warmup-btn ${s.warmup?'active':''}" data-mei="${ei}" data-msi="${si}">w-up</button></div>`;
                         }
                     });
+                }
+                if (ex.notes) {
+                    html += `<div style="font-size:0.75rem;color:var(--text2);margin-top:0.5rem;font-style:italic;">${ex.notes}</div>`;
                 }
                 html += '</div>';
             });
@@ -458,6 +547,7 @@
                 closeModal();
                 renderHistory();
                 updateWeekSelect();
+                updateDayButtons();
             }
         };
         modal.onclick = e => { if (e.target === modal) closeModal(); };
@@ -469,7 +559,7 @@
 
         function renderProgress(lift = 'Back Squat') {
             const el = $('progress');
-            const rows = data.filter(t => t.exercises.some(e => e.name === lift)).map(t => {
+            const rows = data.filter(t => t.exercises.some(e => e.name === lift && !e.skipped)).map(t => {
                 const ex = t.exercises.find(e => e.name === lift);
                 const ws = ex.sets?.filter(s => !s.warmup) || [];
                 const max = ws.length ? Math.max(...ws.map(s => parseFloat(s.w)||0)) : 0;
@@ -492,11 +582,12 @@
             const wk = $('week-select').value;
             const exp = wk === 'all' ? data : data.filter(t => t.week == wk);
             if (!exp.length) { showToast('Geen data'); return; }
-            let csv = 'Datum,Dag,Lift,Week,Oefening,Type,Set,Gewicht,Reps,Tijd,Warmup\n';
+            let csv = 'Datum,Dag,Lift,Week,Oefening,Type,Set,Gewicht,Reps,Tijd,Warmup,Equipment,Skipped,Notes\n';
             exp.forEach(t => {
                 t.exercises.forEach(ex => {
-                    if (ex.type === 'check') csv += `${t.date},${t.day},${t.lift},${t.week},${ex.name},check,,,,,${ex.done}\n`;
-                    else ex.sets?.forEach((s,i) => { csv += `${t.date},${t.day},${t.lift},${t.week},${ex.name},${ex.type},${i+1},${s.w||''},${s.r||''},${s.t||''},${s.warmup?'ja':'nee'}\n`; });
+                    if (ex.type === 'check') csv += `${t.date},${t.day},${t.lift},${t.week},${ex.name},check,,,,,,${ex.skipped||false},"${(ex.notes||'').replace(/"/g,'""')}"\n`;
+                    else if (ex.skipped) csv += `${t.date},${t.day},${t.lift},${t.week},${ex.name},${ex.type},,,,,,true,"${(ex.notes||'').replace(/"/g,'""')}"\n`;
+                    else ex.sets?.forEach((s,i) => { csv += `${t.date},${t.day},${t.lift},${t.week},${ex.name},${ex.type},${i+1},${s.w||''},${s.r||''},${s.t||''},${s.warmup?'ja':'nee'},${ex.equip||''},false,"${(ex.notes||'').replace(/"/g,'""')}"\n`; });
                 });
             });
             const a = document.createElement('a');
@@ -517,13 +608,14 @@
                     if (lines.length < 2) { showToast('Leeg'); return; }
                     const imp = {};
                     for (let i = 1; i < lines.length; i++) {
-                        const [date,day,lift,week,exName,type,setNum,w,r,t,warmup] = lines[i].split(',');
+                        const parts = lines[i].match(/(".*?"|[^,]+)/g) || [];
+                        const [date,day,lift,week,exName,type,setNum,w,r,t,warmup,equip,skipped,notes] = parts.map(p => p.replace(/^"|"$/g, '').replace(/""/g, '"'));
                         const key = date+'_'+day;
                         if (!imp[key]) imp[key] = {id:Date.now()+i,date,day,lift,week:+week||1,exercises:[]};
                         let ex = imp[key].exercises.find(e => e.name === exName);
-                        if (!ex) { ex = {name:exName,type,sets:[],done:false}; imp[key].exercises.push(ex); }
+                        if (!ex) { ex = {name:exName,type,sets:[],done:false,skipped:skipped==='true',notes:notes||''}; if (equip) ex.equip = equip; imp[key].exercises.push(ex); }
                         if (type === 'check') ex.done = warmup==='true'||warmup==='ja';
-                        else if (setNum) ex.sets.push({w:w||'',r:r||'',t:t||'',warmup:warmup==='ja'});
+                        else if (setNum && skipped !== 'true') ex.sets.push({w:w||'',r:r||'',t:t||'',warmup:warmup==='ja'});
                     }
                     const arr = Object.values(imp).sort((a,b) => new Date(b.date)-new Date(a.date));
                     if (!arr.length) { showToast('Geen data'); return; }
@@ -531,7 +623,7 @@
                         const keys = new Set(data.map(t => t.date+'_'+t.day));
                         data = [...data, ...arr.filter(t => !keys.has(t.date+'_'+t.day))].sort((a,b) => new Date(b.date)-new Date(a.date));
                     } else data = arr;
-                    save(); showToast('Geïmporteerd!'); updateWeekSelect(); renderHistory();
+                    save(); showToast('Geïmporteerd!'); updateWeekSelect(); updateDayButtons(); renderHistory();
                 } catch(err) { console.error(err); showToast('Fout'); }
             };
             reader.readAsText(file);
