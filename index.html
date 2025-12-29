@@ -52,7 +52,14 @@
         .ex-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1rem; margin-bottom: 0.75rem; }
         .ex-card.done { border-color: var(--success); }
         .ex-card.skipped { border-color: var(--skip); opacity: 0.6; }
-        .ex-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; }
+        .ex-card.collapsed { padding: 0.75rem 1rem; }
+        .ex-card.collapsed .ex-body { display: none; }
+        .ex-card.collapsed .ex-head { margin-bottom: 0; }
+        .ex-card.collapsed .ex-summary { display: inline; }
+        .ex-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; cursor: pointer; }
+        .ex-summary { display: none; font-size: 0.75rem; color: var(--success); margin-left: 0.5rem; }
+        .collapse-icon { font-size: 0.75rem; color: var(--text3); margin-right: 0.25rem; transition: transform 0.2s; }
+        .ex-card.collapsed .collapse-icon { transform: rotate(-90deg); }
         .ex-name { font-weight: 600; font-size: 0.9375rem; }
         .ex-rx { font-size: 0.75rem; color: var(--text2); background: var(--bg3); padding: 0.25rem 0.5rem; border-radius: 0.25rem; }
         .ex-hint { font-size: 0.75rem; color: var(--text3); margin-bottom: 0.5rem; }
@@ -631,7 +638,24 @@
             let html = '';
             current.exercises.forEach((ex, ei) => {
                 const done = ex.skipped ? false : (ex.type === 'check' ? ex.done : ex.setsData?.some(s => s.w || s.t));
-                const cardClass = ex.skipped ? 'skipped' : (done ? 'done' : '');
+                const isCollapsed = ex.collapsed && done;
+                const cardClass = (ex.skipped ? 'skipped' : (done ? 'done' : '')) + (isCollapsed ? ' collapsed' : '');
+
+                // Summary voor ingeklapte weergave
+                let summaryText = '';
+                if (done && !ex.skipped) {
+                    if (ex.type === 'check') {
+                        summaryText = '✓';
+                    } else if (ex.setsData) {
+                        const filledSets = ex.setsData.filter(s => s.w || s.t);
+                        if (ex.type === 'timed') {
+                            summaryText = filledSets.map(s => `${s.w}×${s.t}s`).join(' / ');
+                        } else {
+                            summaryText = filledSets.filter(s => !s.warmup).map(s => `${s.w}×${s.r}`).join(' / ');
+                        }
+                    }
+                }
+
                 const prev = getPrevWithDate(ex.name);
                 let prevHtml = '';
                 if (prev) {
@@ -642,8 +666,16 @@
                         prevHtml = `<div class="ex-prev"><span class="ex-prev-date">${fmtDate(prev.date)}</span> ${setsStr}</div>`;
                     }
                 }
+
                 const swapHtml = ex.canSwap ? `<button class="swap-btn" data-ei="${ei}">⇄</button>` : '';
-                html += `<div class="ex-card ${cardClass}"><div class="ex-head"><div><span class="ex-name">${ex.name}</span><span class="ex-btns"><button class="skip-btn ${ex.skipped?'active':''}" data-ei="${ei}">${ex.skipped?'⏭️ Overgeslagen':'Skip'}</button>${swapHtml}</span></div><span class="ex-rx">${ex.sets}x${ex.reps||'max'}</span></div><div class="ex-hint">${ex.hint}</div>${prevHtml}`;
+                const collapseIcon = done ? `<span class="collapse-icon">▼</span>` : '';
+
+                html += `<div class="ex-card ${cardClass}" data-ei="${ei}">`;
+                html += `<div class="ex-head" data-ei="${ei}"><div>${collapseIcon}<span class="ex-name">${ex.name}</span><span class="ex-summary">${summaryText}</span><span class="ex-btns"><button class="skip-btn ${ex.skipped?'active':''}" data-ei="${ei}">${ex.skipped?'⏭️ Overgeslagen':'Skip'}</button>${swapHtml}</span></div><span class="ex-rx">${ex.sets}x${ex.reps||'max'}</span></div>`;
+
+                // Body wrapper voor collapse
+                html += `<div class="ex-body">`;
+                html += `<div class="ex-hint">${ex.hint}</div>${prevHtml}`;
 
                 if (!ex.skipped) {
                     // Equipment selector for applicable exercises
@@ -655,7 +687,7 @@
                         });
                         html += `</div>`;
                     }
-                    
+
                     if (ex.type === 'check') {
                         html += `<div class="check-row"><button class="check-btn ${ex.done?'checked':''}" data-ei="${ei}">${ex.done?'✓':''}</button><span>Tik als gedaan</span></div>`;
                     } else if (ex.type === 'timed') {
@@ -669,10 +701,10 @@
                         html += `<button class="add-btn" data-ei="${ei}">+</button>`;
                     }
                 }
-                
+
                 // Notes field
                 html += `<textarea class="notes-input" data-ei="${ei}" placeholder="Notities...">${ex.notes||''}</textarea>`;
-                html += '</div>';
+                html += '</div></div>'; // close ex-body and ex-card
             });
             exEl.innerHTML = html;
             
@@ -744,6 +776,20 @@
             });
             exEl.querySelectorAll('.notes-input').forEach(inp => {
                 inp.oninput = () => { current.exercises[+inp.dataset.ei].notes = inp.value; };
+            });
+            // Collapse/expand handler voor voltooide oefeningen
+            exEl.querySelectorAll('.ex-head').forEach(head => {
+                head.onclick = e => {
+                    // Niet togglen als er op een knop wordt geklikt
+                    if (e.target.closest('.skip-btn') || e.target.closest('.swap-btn') || e.target.closest('.swap-menu')) return;
+                    const ei = +head.dataset.ei;
+                    const ex = current.exercises[ei];
+                    const done = ex.skipped ? false : (ex.type === 'check' ? ex.done : ex.setsData?.some(s => s.w || s.t));
+                    if (done) {
+                        ex.collapsed = !ex.collapsed;
+                        renderForm();
+                    }
+                };
             });
             updateSave();
         }
