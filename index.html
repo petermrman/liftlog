@@ -159,12 +159,42 @@
         .toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--success); color: #000; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 600; opacity: 0; transition: all 0.3s; z-index: 300; }
         .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
         .file-input { display: none; }
+
+        /* Dashboard */
+        .dash-section { background: var(--bg2); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1rem; margin-bottom: 1rem; }
+        .dash-title { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text); }
+        .dash-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.25rem; }
+        .dash-week-day { text-align: center; padding: 0.5rem 0.25rem; background: var(--bg3); border-radius: 0.375rem; font-size: 0.625rem; }
+        .dash-week-day .day-label { color: var(--text3); margin-bottom: 0.25rem; }
+        .dash-week-day .day-status { font-size: 0.875rem; }
+        .dash-week-day.today { border: 1px solid var(--accent); }
+        .dash-week-day.trained { background: rgba(34,197,94,0.2); }
+        .dash-week-day.trained .day-status { color: var(--success); }
+        .dash-next { display: flex; flex-direction: column; gap: 0.5rem; }
+        .dash-next-main { font-size: 1.125rem; font-weight: 600; color: var(--accent); }
+        .dash-next-sub { font-size: 0.75rem; color: var(--text2); }
+        .dash-next-btn { margin-top: 0.5rem; padding: 0.75rem; background: var(--accent); border: none; border-radius: 0.5rem; color: #000; font-weight: 600; cursor: pointer; }
+        .dash-streak { display: flex; flex-direction: column; gap: 0.5rem; }
+        .dash-streak-bar { height: 1.5rem; background: var(--bg3); border-radius: 0.5rem; overflow: hidden; position: relative; }
+        .dash-streak-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); border-radius: 0.5rem; transition: width 0.5s; }
+        .dash-streak-text { font-size: 0.875rem; color: var(--text2); }
+        .dash-streak-text strong { color: var(--text); }
+        .dash-lifts { display: flex; flex-direction: column; gap: 0.75rem; }
+        .dash-lift-row { display: flex; align-items: center; gap: 0.5rem; }
+        .dash-lift-name { width: 5rem; font-size: 0.75rem; color: var(--text2); }
+        .dash-lift-vals { flex: 1; display: flex; gap: 0.375rem; font-size: 0.75rem; }
+        .dash-lift-val { background: var(--bg3); padding: 0.25rem 0.5rem; border-radius: 0.25rem; }
+        .dash-lift-val.latest { background: var(--accent); color: #000; font-weight: 600; }
+        .dash-lift-trend { font-size: 0.875rem; }
+        .dash-lift-trend.up { color: var(--success); }
+        .dash-lift-trend.down { color: var(--danger); }
+        .dash-lift-trend.same { color: var(--text3); }
     </style>
 </head>
 <body>
     <header class="header">
         <div class="header-content">
-            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v2.2</small></div>
+            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v2.3</small></div>
             <nav class="nav">
                 <button data-screen="dashboard">Home</button>
                 <button class="active" data-screen="new">Nieuw</button>
@@ -214,6 +244,25 @@
             <div class="prog-chart">
                 <div class="prog-title">Topset Progressie (kg)</div>
                 <div id="progress"></div>
+            </div>
+        </section>
+
+        <section id="screen-dashboard" class="screen">
+            <div class="dash-section">
+                <div class="dash-title">📅 Deze week</div>
+                <div class="dash-week" id="dash-week"></div>
+            </div>
+            <div class="dash-section">
+                <div class="dash-title">⏭️ Volgende training</div>
+                <div class="dash-next" id="dash-next"></div>
+            </div>
+            <div class="dash-section">
+                <div class="dash-title">🔥 Consistentie</div>
+                <div class="dash-streak" id="dash-streak"></div>
+            </div>
+            <div class="dash-section">
+                <div class="dash-title">📊 Hoofdlifts (laatste 4)</div>
+                <div class="dash-lifts" id="dash-lifts"></div>
             </div>
         </section>
     </main>
@@ -526,6 +575,7 @@
                 $('screen-' + btn.dataset.screen).classList.add('active');
                 if (btn.dataset.screen === 'history') renderHistory();
                 if (btn.dataset.screen === 'progress') renderProgress();
+                if (btn.dataset.screen === 'dashboard') renderDashboard();
             };
         });
 
@@ -980,6 +1030,159 @@
             if (!rows.length) { el.innerHTML = '<div class="empty">Geen data</div>'; return; }
             const max = Math.max(...rows.map(r => r.val));
             el.innerHTML = rows.map(r => `<div class="prog-row"><span class="prog-date">${r.date.slice(5)}</span><div class="prog-bar-bg"><div class="prog-bar" style="width:${(r.val/max)*100}%"></div></div><span class="prog-val">${r.val}</span></div>`).join('');
+        }
+
+        // Dashboard
+        function renderDashboard() {
+            renderDashWeek();
+            renderDashNext();
+            renderDashStreak();
+            renderDashLifts();
+        }
+
+        function renderDashWeek() {
+            const el = $('dash-week');
+            const now = new Date();
+            const dayOfWeek = now.getDay(); // 0 = zondag
+            const monday = new Date(now);
+            monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+            monday.setHours(0,0,0,0);
+
+            const days = ['Ma','Di','Wo','Do','Vr','Za','Zo'];
+            let html = '';
+
+            for (let i = 0; i < 7; i++) {
+                const d = new Date(monday);
+                d.setDate(monday.getDate() + i);
+                const dateStr = d.toISOString().split('T')[0];
+                const isToday = d.toDateString() === now.toDateString();
+                const training = data.find(t => t.date === dateStr);
+                const trained = !!training;
+
+                html += `<div class="dash-week-day ${isToday ? 'today' : ''} ${trained ? 'trained' : ''}">
+                    <div class="day-label">${days[i]}</div>
+                    <div class="day-status">${trained ? '✓' + training.day : '·'}</div>
+                </div>`;
+            }
+            el.innerHTML = html;
+        }
+
+        function renderDashNext() {
+            const el = $('dash-next');
+            // Bepaal welke dag als volgende aan de beurt is
+            const dayOrder = ['A', 'B', 'C', 'D'];
+            const lastTraining = data[0];
+            let nextDay = 'A';
+
+            if (lastTraining) {
+                const lastDayIdx = dayOrder.indexOf(lastTraining.day);
+                nextDay = dayOrder[(lastDayIdx + 1) % 4];
+            }
+
+            const template = SLOT_TEMPLATES[nextDay];
+            const lastOfThisDay = data.find(t => t.day === nextDay);
+
+            let topset = '-';
+            if (lastOfThisDay) {
+                const mainLift = lastOfThisDay.exercises.find(e => e.name === template.name || EXERCISES[template.mainLift]?.name === e.name);
+                if (mainLift?.sets) {
+                    const ws = mainLift.sets.filter(s => !s.warmup);
+                    const last = ws[ws.length - 1];
+                    if (last) topset = last.w + 'kg × ' + last.r;
+                }
+            }
+
+            el.innerHTML = `
+                <div class="dash-next-main">Dag ${nextDay} — ${template.name}</div>
+                <div class="dash-next-sub">
+                    ${lastOfThisDay ? `Laatste: ${fmtDate(lastOfThisDay.date)} | Topset: ${topset}` : 'Nog niet gedaan'}
+                </div>
+                <button class="dash-next-btn" onclick="document.querySelector('[data-day=${nextDay}]').click(); document.querySelector('[data-screen=new]').click();">
+                    Start training →
+                </button>
+            `;
+        }
+
+        function renderDashStreak() {
+            const el = $('dash-streak');
+            // Bereken hoeveel weken er achter elkaar getraind is (minstens 1 training per week)
+            const weeks = {};
+            data.forEach(t => {
+                const d = new Date(t.date);
+                const weekStart = new Date(d);
+                weekStart.setDate(d.getDate() - d.getDay() + 1);
+                const weekKey = weekStart.toISOString().split('T')[0];
+                weeks[weekKey] = true;
+            });
+
+            // Tel streak vanaf nu terug
+            let streak = 0;
+            const now = new Date();
+            const currentWeekStart = new Date(now);
+            currentWeekStart.setDate(now.getDate() - (now.getDay() === 0 ? 6 : now.getDay() - 1));
+            currentWeekStart.setHours(0,0,0,0);
+
+            for (let i = 0; i < 52; i++) {
+                const weekCheck = new Date(currentWeekStart);
+                weekCheck.setDate(currentWeekStart.getDate() - (i * 7));
+                const weekKey = weekCheck.toISOString().split('T')[0];
+                if (weeks[weekKey]) {
+                    streak++;
+                } else if (i > 0) {
+                    break; // Alleen stoppen als het niet de huidige week is
+                }
+            }
+
+            const goal = 12;
+            const pct = Math.min(100, (streak / goal) * 100);
+
+            el.innerHTML = `
+                <div class="dash-streak-bar">
+                    <div class="dash-streak-fill" style="width: ${pct}%"></div>
+                </div>
+                <div class="dash-streak-text"><strong>${streak}</strong> van ${goal} weken consistent</div>
+            `;
+        }
+
+        function renderDashLifts() {
+            const el = $('dash-lifts');
+            const mainLifts = [
+                { name: 'Back Squat', label: 'Squat' },
+                { name: 'Bench Press', label: 'Bench' },
+                { name: 'Conventional Deadlift', label: 'Deadlift' },
+                { name: 'Push Press', label: 'Press' }
+            ];
+
+            let html = '';
+            mainLifts.forEach(lift => {
+                // Haal laatste 4 topsets op
+                const trainings = data.filter(t => t.exercises.some(e => e.name === lift.name && !e.skipped));
+                const vals = trainings.slice(0, 4).map(t => {
+                    const ex = t.exercises.find(e => e.name === lift.name);
+                    const ws = ex.sets?.filter(s => !s.warmup) || [];
+                    return ws.length ? Math.max(...ws.map(s => parseFloat(s.w) || 0)) : 0;
+                }).reverse();
+
+                // Bepaal trend
+                let trend = 'same';
+                let trendIcon = '→';
+                if (vals.length >= 2) {
+                    const last = vals[vals.length - 1];
+                    const prev = vals[vals.length - 2];
+                    if (last > prev) { trend = 'up'; trendIcon = '↑'; }
+                    else if (last < prev) { trend = 'down'; trendIcon = '↓'; }
+                }
+
+                html += `<div class="dash-lift-row">
+                    <span class="dash-lift-name">${lift.label}</span>
+                    <div class="dash-lift-vals">
+                        ${vals.length ? vals.map((v, i) => `<span class="dash-lift-val ${i === vals.length - 1 ? 'latest' : ''}">${v}</span>`).join('') : '<span class="dash-lift-val">-</span>'}
+                    </div>
+                    <span class="dash-lift-trend ${trend}">${trendIcon}</span>
+                </div>`;
+            });
+
+            el.innerHTML = html;
         }
 
         // Export
