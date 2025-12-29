@@ -196,17 +196,41 @@
         .dash-export-btns { display: flex; gap: 0.5rem; }
         .dash-export-btn { flex: 1; padding: 0.625rem; background: var(--bg3); border: 1px solid var(--border); border-radius: 0.5rem; color: var(--text); font-size: 0.75rem; cursor: pointer; }
         .dash-export-btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+
+        /* Exercises Browser */
+        .ex-browser { padding-bottom: 1rem; }
+        .ex-search-row { margin-bottom: 0.75rem; }
+        .ex-search { width: 100%; padding: 0.75rem 1rem; background: var(--bg2); border: 1px solid var(--border); border-radius: 0.5rem; color: var(--text); font-size: 0.875rem; }
+        .ex-search:focus { outline: none; border-color: var(--accent); }
+        .ex-search::placeholder { color: var(--text3); }
+        .ex-filters { display: flex; gap: 0.375rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+        .ex-filter { padding: 0.375rem 0.625rem; background: var(--bg2); border: 1px solid var(--border); border-radius: 0.375rem; color: var(--text2); font-size: 0.6875rem; cursor: pointer; white-space: nowrap; }
+        .ex-filter.active { background: var(--accent); color: #000; border-color: var(--accent); }
+        .ex-count { font-size: 0.75rem; color: var(--text3); margin-bottom: 0.75rem; }
+        .ex-grid { display: flex; flex-direction: column; gap: 0.5rem; }
+        .ex-tile { background: var(--bg2); border: 1px solid var(--border); border-radius: 0.75rem; padding: 0.875rem; display: flex; align-items: flex-start; gap: 0.75rem; }
+        .ex-tile-yt { flex-shrink: 0; width: 2.5rem; height: 2.5rem; background: #ff0000; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1rem; text-decoration: none; }
+        .ex-tile-yt:hover { background: #cc0000; transform: scale(1.05); }
+        .ex-tile-info { flex: 1; min-width: 0; }
+        .ex-tile-name { font-weight: 600; font-size: 0.9375rem; margin-bottom: 0.25rem; color: var(--text); }
+        .ex-tile-meta { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-bottom: 0.375rem; }
+        .ex-tile-tag { padding: 0.125rem 0.375rem; background: var(--bg3); border-radius: 0.25rem; font-size: 0.625rem; color: var(--text2); }
+        .ex-tile-tag.pattern { background: rgba(245,158,11,0.2); color: var(--accent); }
+        .ex-tile-tag.equipment { background: rgba(59,130,246,0.2); color: var(--blue); }
+        .ex-tile-tag.muscle { background: rgba(34,197,94,0.2); color: var(--success); }
+        .ex-tile-tag.unilateral { background: rgba(168,85,247,0.2); color: var(--purple); }
+        .ex-tile-hint { font-size: 0.75rem; color: var(--text3); font-style: italic; }
     </style>
 </head>
 <body>
     <header class="header">
         <div class="header-content">
-            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v2.6</small></div>
+            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v2.7</small></div>
             <nav class="nav">
                 <button data-screen="dashboard">Home</button>
                 <button class="active" data-screen="new">Nieuw</button>
                 <button data-screen="history">Log</button>
-                <button data-screen="progress">Stats</button>
+                <button data-screen="exercises">Gym</button>
             </nav>
         </div>
     </header>
@@ -281,6 +305,28 @@
                         <button class="dash-export-btn" id="ics-export-week">Deze week</button>
                     </div>
                 </div>
+            </div>
+        </section>
+
+        <section id="screen-exercises" class="screen">
+            <div class="ex-browser">
+                <div class="ex-search-row">
+                    <input type="text" class="ex-search" id="ex-search" placeholder="🔍 Zoek oefening...">
+                </div>
+                <div class="ex-filters" id="ex-filters">
+                    <button class="ex-filter active" data-pattern="all">Alles</button>
+                    <button class="ex-filter" data-pattern="squat">Squat</button>
+                    <button class="ex-filter" data-pattern="hinge">Hinge</button>
+                    <button class="ex-filter" data-pattern="push_horizontal">Push H</button>
+                    <button class="ex-filter" data-pattern="push_vertical">Push V</button>
+                    <button class="ex-filter" data-pattern="pull_horizontal">Pull H</button>
+                    <button class="ex-filter" data-pattern="pull_vertical">Pull V</button>
+                    <button class="ex-filter" data-pattern="carry">Carry</button>
+                    <button class="ex-filter" data-pattern="activation">Activatie</button>
+                    <button class="ex-filter" data-pattern="isolation">Isolatie</button>
+                </div>
+                <div class="ex-count" id="ex-count"></div>
+                <div class="ex-grid" id="ex-grid"></div>
             </div>
         </section>
     </main>
@@ -619,6 +665,7 @@
                 if (btn.dataset.screen === 'history') renderHistory();
                 if (btn.dataset.screen === 'progress') renderProgress();
                 if (btn.dataset.screen === 'dashboard') renderDashboard();
+                if (btn.dataset.screen === 'exercises') renderExercises();
             };
         });
 
@@ -1233,6 +1280,105 @@
 
             el.innerHTML = html;
         }
+
+        // Exercises Browser
+        let exerciseFilter = 'all';
+        let exerciseSearch = '';
+
+        function renderExercises() {
+            const grid = $('ex-grid');
+            const countEl = $('ex-count');
+
+            // Filter en zoek
+            let exercises = Object.values(EXERCISES);
+
+            if (exerciseFilter !== 'all') {
+                exercises = exercises.filter(ex => ex.pattern === exerciseFilter);
+            }
+
+            if (exerciseSearch) {
+                const search = exerciseSearch.toLowerCase();
+                exercises = exercises.filter(ex =>
+                    ex.name.toLowerCase().includes(search) ||
+                    ex.pattern.toLowerCase().includes(search) ||
+                    ex.hint?.toLowerCase().includes(search) ||
+                    ex.muscles?.primary?.some(m => m.toLowerCase().includes(search))
+                );
+            }
+
+            // Sorteer alfabetisch
+            exercises.sort((a, b) => a.name.localeCompare(b.name));
+
+            countEl.textContent = `${exercises.length} oefeningen`;
+
+            // Pattern labels
+            const patternLabels = {
+                squat: 'Squat',
+                hinge: 'Hinge',
+                push_horizontal: 'Push H',
+                push_vertical: 'Push V',
+                pull_horizontal: 'Pull H',
+                pull_vertical: 'Pull V',
+                carry: 'Carry',
+                activation: 'Activatie',
+                isolation: 'Isolatie'
+            };
+
+            // Equipment labels
+            const equipLabels = {
+                barbell: 'BB',
+                dumbbell: 'DB',
+                kettlebell: 'KB',
+                cable: 'Kabel',
+                machine: 'Machine',
+                bodyweight: 'BW',
+                band: 'Band'
+            };
+
+            let html = '';
+            exercises.forEach(ex => {
+                const ytLink = ex.yt ? `https://youtube.com/watch?v=${ex.yt}` : '#';
+                const patternLabel = patternLabels[ex.pattern] || ex.pattern;
+                const equipTags = ex.equipment?.map(e => `<span class="ex-tile-tag equipment">${equipLabels[e] || e}</span>`).join('') || '';
+                const muscleTags = ex.muscles?.primary?.slice(0, 2).map(m => `<span class="ex-tile-tag muscle">${m}</span>`).join('') || '';
+                const unilateralTag = ex.unilateral ? '<span class="ex-tile-tag unilateral">Unilateral</span>' : '';
+                const mainLiftTag = ex.isMainLift ? '<span class="ex-tile-tag pattern">⭐ Main Lift</span>' : '';
+
+                html += `
+                <div class="ex-tile">
+                    <a href="${ytLink}" target="_blank" class="ex-tile-yt" ${!ex.yt ? 'style="background:#333;pointer-events:none"' : ''}>▶</a>
+                    <div class="ex-tile-info">
+                        <div class="ex-tile-name">${ex.name}</div>
+                        <div class="ex-tile-meta">
+                            <span class="ex-tile-tag pattern">${patternLabel}</span>
+                            ${mainLiftTag}
+                            ${equipTags}
+                            ${muscleTags}
+                            ${unilateralTag}
+                        </div>
+                        ${ex.hint ? `<div class="ex-tile-hint">${ex.hint}</div>` : ''}
+                    </div>
+                </div>`;
+            });
+
+            grid.innerHTML = html || '<div class="empty">Geen oefeningen gevonden</div>';
+        }
+
+        // Exercises filter handlers
+        document.querySelectorAll('.ex-filter').forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll('.ex-filter').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                exerciseFilter = btn.dataset.pattern;
+                renderExercises();
+            };
+        });
+
+        // Exercises search handler
+        $('ex-search').oninput = (e) => {
+            exerciseSearch = e.target.value;
+            renderExercises();
+        };
 
         // ICS Calendar Export
         function generateICS(trainings) {
