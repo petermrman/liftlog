@@ -57,7 +57,8 @@
         .ex-card.collapsed .ex-head { margin-bottom: 0; }
         .ex-card.collapsed .ex-summary { display: flex; }
         .ex-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; }
-        .ex-summary { display: none; font-size: 0.75rem; color: var(--success); margin-top: 0.25rem; }
+        .ex-summary { display: none; font-size: 0.75rem; color: var(--text2); margin-top: 0.25rem; }
+        .ex-card.done .ex-summary { color: var(--success); }
         .collapse-btn { padding: 0.25rem 0.5rem; font-size: 0.625rem; background: transparent; border: 1px solid var(--border); border-radius: 0.25rem; color: var(--text3); cursor: pointer; min-width: 1.5rem; }
         .collapse-btn:hover { background: var(--bg3); }
         .ex-card.done .collapse-btn { border-color: var(--success); color: var(--success); }
@@ -649,20 +650,24 @@
             let html = '';
             current.exercises.forEach((ex, ei) => {
                 const done = ex.skipped ? false : (ex.type === 'check' ? ex.done : ex.setsData?.some(s => s.w || s.t));
-                const isCollapsed = ex.collapsed && done;
+                const isCollapsed = ex.collapsed && !ex.skipped;
                 const cardClass = (ex.skipped ? 'skipped' : (done ? 'done' : '')) + (isCollapsed ? ' collapsed' : '');
 
                 // Summary voor ingeklapte weergave
                 let summaryText = '';
-                if (done && !ex.skipped) {
+                if (!ex.skipped) {
                     if (ex.type === 'check') {
-                        summaryText = '✓';
+                        summaryText = ex.done ? '✓' : '○';
                     } else if (ex.setsData) {
                         const filledSets = ex.setsData.filter(s => s.w || s.t);
-                        if (ex.type === 'timed') {
-                            summaryText = filledSets.map(s => `${s.w}×${s.t}s`).join(' / ');
+                        if (filledSets.length > 0) {
+                            if (ex.type === 'timed') {
+                                summaryText = filledSets.map(s => `${s.w}×${s.t}s`).join(' / ');
+                            } else {
+                                summaryText = filledSets.filter(s => !s.warmup).map(s => `${s.w}×${s.r}`).join(' / ');
+                            }
                         } else {
-                            summaryText = filledSets.filter(s => !s.warmup).map(s => `${s.w}×${s.r}`).join(' / ');
+                            summaryText = `${ex.sets}×${ex.reps || 'max'} (leeg)`;
                         }
                     }
                 }
