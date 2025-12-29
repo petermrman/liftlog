@@ -60,6 +60,9 @@
         .ex-summary { display: none; font-size: 0.75rem; color: var(--success); margin-left: 0.5rem; }
         .collapse-icon { font-size: 0.75rem; color: var(--text3); margin-right: 0.25rem; transition: transform 0.2s; }
         .ex-card.collapsed .collapse-icon { transform: rotate(-90deg); }
+        .collapse-all-row { display: flex; justify-content: flex-end; margin-bottom: 0.5rem; }
+        .collapse-all-btn { padding: 0.375rem 0.75rem; font-size: 0.75rem; background: var(--bg2); border: 1px solid var(--border); border-radius: 0.375rem; color: var(--text2); cursor: pointer; }
+        .collapse-all-btn:hover { background: var(--bg3); }
         .ex-name { font-weight: 600; font-size: 0.9375rem; }
         .ex-rx { font-size: 0.75rem; color: var(--text2); background: var(--bg3); padding: 0.25rem 0.5rem; border-radius: 0.25rem; }
         .ex-hint { font-size: 0.75rem; color: var(--text3); margin-bottom: 0.5rem; }
@@ -177,6 +180,9 @@
             <div class="date-row">
                 <label>Datum (DD-MM-YYYY)</label>
                 <input type="text" class="date-input" id="date-input" placeholder="29-12-2025" inputmode="numeric">
+            </div>
+            <div class="collapse-all-row" id="collapse-all-row" style="display:none;">
+                <button class="collapse-all-btn" id="collapse-all-btn">▼ Alles inklappen</button>
             </div>
             <div id="exercises"></div>
             <button class="save-btn" id="save-btn" disabled>Training Opslaan</button>
@@ -393,6 +399,8 @@
         const modal = $('modal');
         const modalBody = $('modal-body');
         const toast = $('toast');
+        const collapseAllRow = $('collapse-all-row');
+        const collapseAllBtn = $('collapse-all-btn');
 
         // Date helpers
         const toDisplayDate = d => { const p = d.split('-'); return p[2] + '-' + p[1] + '-' + p[0]; }; // YYYY-MM-DD -> DD-MM-YYYY
@@ -791,8 +799,41 @@
                     }
                 };
             });
+
+            // Update collapse-all knop
+            updateCollapseAllBtn();
             updateSave();
         }
+
+        function updateCollapseAllBtn() {
+            if (!current) { collapseAllRow.style.display = 'none'; return; }
+            const doneExercises = current.exercises.filter(ex => {
+                if (ex.skipped) return false;
+                return ex.type === 'check' ? ex.done : ex.setsData?.some(s => s.w || s.t);
+            });
+            if (doneExercises.length === 0) {
+                collapseAllRow.style.display = 'none';
+                return;
+            }
+            collapseAllRow.style.display = 'flex';
+            const allCollapsed = doneExercises.every(ex => ex.collapsed);
+            collapseAllBtn.textContent = allCollapsed ? '▶ Alles uitklappen' : '▼ Alles inklappen';
+        }
+
+        collapseAllBtn.onclick = () => {
+            if (!current) return;
+            const doneExercises = current.exercises.filter(ex => {
+                if (ex.skipped) return false;
+                return ex.type === 'check' ? ex.done : ex.setsData?.some(s => s.w || s.t);
+            });
+            const allCollapsed = doneExercises.every(ex => ex.collapsed);
+            // Toggle: als alles ingeklapt is, klap uit. Anders klap in.
+            current.exercises.forEach(ex => {
+                const done = ex.skipped ? false : (ex.type === 'check' ? ex.done : ex.setsData?.some(s => s.w || s.t));
+                if (done) ex.collapsed = !allCollapsed;
+            });
+            renderForm();
+        };
 
         function updateSave() {
             if (!current) { saveBtn.disabled = true; return; }
