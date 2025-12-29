@@ -394,6 +394,7 @@
         let current = null;
         let editIdx = null;
         let editData = null;
+        let globalCollapsed = false; // Onthoudt of alles ingeklapt moet zijn
 
         // DOM
         const $ = id => document.getElementById(id);
@@ -568,7 +569,7 @@
                         role: slot.role,
                         canSwap: slot.role === 'accessory' || slot.role === 'finisher',
                         skipped: false,
-                        collapsed: false,
+                        collapsed: globalCollapsed, // Gebruik globale collapsed state
                         notes: ''
                     };
 
@@ -827,8 +828,9 @@
             const collapsableExercises = current.exercises.filter(ex => !ex.skipped);
             const allCollapsed = collapsableExercises.every(ex => ex.collapsed);
             // Toggle: als alles ingeklapt is, klap uit. Anders klap in.
+            globalCollapsed = !allCollapsed; // Onthoudt voor nieuwe dagen
             current.exercises.forEach(ex => {
-                if (!ex.skipped) ex.collapsed = !allCollapsed;
+                if (!ex.skipped) ex.collapsed = globalCollapsed;
             });
             renderForm();
         };
