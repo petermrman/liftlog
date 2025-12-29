@@ -55,11 +55,11 @@
         .ex-card.collapsed { padding: 0.75rem 1rem; }
         .ex-card.collapsed .ex-body { display: none; }
         .ex-card.collapsed .ex-head { margin-bottom: 0; }
-        .ex-card.collapsed .ex-summary { display: inline; }
-        .ex-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; cursor: pointer; }
-        .ex-summary { display: none; font-size: 0.75rem; color: var(--success); margin-left: 0.5rem; }
-        .collapse-icon { font-size: 0.75rem; color: var(--text3); margin-right: 0.25rem; transition: transform 0.2s; }
-        .ex-card.collapsed .collapse-icon { transform: rotate(-90deg); }
+        .ex-card.collapsed .ex-summary { display: flex; }
+        .ex-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; }
+        .ex-summary { display: none; font-size: 0.75rem; color: var(--success); margin-top: 0.25rem; }
+        .collapse-btn { padding: 0.25rem 0.5rem; font-size: 0.625rem; background: transparent; border: 1px solid var(--success); border-radius: 0.25rem; color: var(--success); cursor: pointer; }
+        .collapse-btn:hover { background: rgba(34,197,94,0.1); }
         .collapse-all-row { display: flex; justify-content: flex-end; margin-bottom: 0.5rem; }
         .collapse-all-btn { padding: 0.375rem 0.75rem; font-size: 0.75rem; background: var(--bg2); border: 1px solid var(--border); border-radius: 0.375rem; color: var(--text2); cursor: pointer; }
         .collapse-all-btn:hover { background: var(--bg3); }
@@ -161,6 +161,7 @@
         <div class="header-content">
             <div class="logo">LIFT<span>LOG</span></div>
             <nav class="nav">
+                <button data-screen="dashboard">Home</button>
                 <button class="active" data-screen="new">Nieuw</button>
                 <button data-screen="history">Log</button>
                 <button data-screen="progress">Stats</button>
@@ -676,10 +677,11 @@
                 }
 
                 const swapHtml = ex.canSwap ? `<button class="swap-btn" data-ei="${ei}">⇄</button>` : '';
-                const collapseIcon = done ? `<span class="collapse-icon">▼</span>` : '';
+                const collapseBtn = done ? `<button class="collapse-btn" data-ei="${ei}">${ex.collapsed ? '▶ Uitklappen' : '▼ Inklappen'}</button>` : '';
 
                 html += `<div class="ex-card ${cardClass}" data-ei="${ei}">`;
-                html += `<div class="ex-head" data-ei="${ei}"><div>${collapseIcon}<span class="ex-name">${ex.name}</span><span class="ex-summary">${summaryText}</span><span class="ex-btns"><button class="skip-btn ${ex.skipped?'active':''}" data-ei="${ei}">${ex.skipped?'⏭️ Overgeslagen':'Skip'}</button>${swapHtml}</span></div><span class="ex-rx">${ex.sets}x${ex.reps||'max'}</span></div>`;
+                html += `<div class="ex-head"><div><span class="ex-name">${ex.name}</span><span class="ex-btns"><button class="skip-btn ${ex.skipped?'active':''}" data-ei="${ei}">${ex.skipped?'⏭️ Overgeslagen':'Skip'}</button>${swapHtml}${collapseBtn}</span></div><span class="ex-rx">${ex.sets}x${ex.reps||'max'}</span></div>`;
+                html += `<div class="ex-summary">${summaryText}</div>`;
 
                 // Body wrapper voor collapse
                 html += `<div class="ex-body">`;
@@ -785,18 +787,12 @@
             exEl.querySelectorAll('.notes-input').forEach(inp => {
                 inp.oninput = () => { current.exercises[+inp.dataset.ei].notes = inp.value; };
             });
-            // Collapse/expand handler voor voltooide oefeningen
-            exEl.querySelectorAll('.ex-head').forEach(head => {
-                head.onclick = e => {
-                    // Niet togglen als er op een knop wordt geklikt
-                    if (e.target.closest('.skip-btn') || e.target.closest('.swap-btn') || e.target.closest('.swap-menu')) return;
-                    const ei = +head.dataset.ei;
-                    const ex = current.exercises[ei];
-                    const done = ex.skipped ? false : (ex.type === 'check' ? ex.done : ex.setsData?.some(s => s.w || s.t));
-                    if (done) {
-                        ex.collapsed = !ex.collapsed;
-                        renderForm();
-                    }
+            // Collapse/expand knop handler
+            exEl.querySelectorAll('.collapse-btn').forEach(btn => {
+                btn.onclick = () => {
+                    const ei = +btn.dataset.ei;
+                    current.exercises[ei].collapsed = !current.exercises[ei].collapsed;
+                    renderForm();
                 };
             });
 
