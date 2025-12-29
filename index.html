@@ -580,20 +580,13 @@
                         ex.equip = prev?.equip || '';
                     }
 
-                    // Sets data
+                    // Sets data - altijd leeg starten (clean slate)
                     if (type === 'check') {
                         ex.done = false;
                     } else if (type === 'timed') {
-                        ex.setsData = prev?.sets?.length
-                            ? prev.sets.map(s => ({w: s.w||'', t: s.t||''}))
-                            : Array(slot.sets).fill().map(() => ({w:'',t:''}));
+                        ex.setsData = Array(slot.sets).fill().map(() => ({w:'',t:''}));
                     } else {
-                        ex.setsData = prev?.sets?.length
-                            ? prev.sets.map(s => ({w: s.w||'', r: s.r||slot.reps, warmup: s.warmup||false}))
-                            : Array(slot.sets).fill().map(() => ({w:'',r:slot.reps,warmup:false}));
-                        while (ex.setsData.length < slot.sets) {
-                            ex.setsData.push({w:'',r:slot.reps,warmup:false});
-                        }
+                        ex.setsData = Array(slot.sets).fill().map(() => ({w:'',r:'',warmup:false}));
                     }
 
                     return ex;
