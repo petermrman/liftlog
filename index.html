@@ -162,7 +162,7 @@
 <body>
     <header class="header">
         <div class="header-content">
-            <div class="logo">LIFT<span>LOG</span></div>
+            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v2.2</small></div>
             <nav class="nav">
                 <button data-screen="dashboard">Home</button>
                 <button class="active" data-screen="new">Nieuw</button>
@@ -588,6 +588,7 @@
                     } else {
                         ex.setsData = Array(slot.sets).fill().map(() => ({w:'',r:'',warmup:false}));
                     }
+                    console.log('buildForm:', ex.name, 'type:', type, 'setsData:', JSON.stringify(ex.setsData), 'done:', ex.done);
 
                     return ex;
                 }).filter(Boolean)
@@ -647,6 +648,7 @@
                 const done = ex.skipped ? false : (ex.type === 'check' ? ex.done : ex.setsData?.some(s => s.w || s.t));
                 const isCollapsed = ex.collapsed && !ex.skipped;
                 const cardClass = (ex.skipped ? 'skipped' : (done ? 'done' : '')) + (isCollapsed ? ' collapsed' : '');
+                console.log('renderForm:', ex.name, 'done:', done, 'class:', cardClass, 'setsData:', JSON.stringify(ex.setsData));
 
                 // Summary voor ingeklapte weergave
                 let summaryText = '';
@@ -1036,6 +1038,19 @@
             };
             reader.readAsText(file);
             e.target.value = '';
+        };
+
+        // Reset optie (double-tap logo)
+        let logoTaps = 0;
+        document.querySelector('.logo').onclick = () => {
+            logoTaps++;
+            setTimeout(() => logoTaps = 0, 500);
+            if (logoTaps >= 3) {
+                if (confirm('LocalStorage resetten? Dit verwijdert alle trainingsdata!')) {
+                    localStorage.removeItem('liftlog3');
+                    location.reload();
+                }
+            }
         };
 
         // Init
