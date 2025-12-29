@@ -221,65 +221,118 @@
     (function() {
         'use strict';
 
-        // Equipment types for exercises that can use different equipment
-        const EQUIP_EXERCISES = ['Goblet Squat', 'Incline DB Press', 'Dumbbell Row', 'Bulgarian Split Squat'];
-        const EQUIP_OPTIONS = ['DB', 'KB', 'BB'];
+        // ===========================================
+        // EXERCISES DATABASE
+        // ===========================================
+        const EXERCISES = {
+            // SQUAT PATTERN
+            back_squat: { id: 'back_squat', name: 'Back Squat', pattern: 'squat', equipment: ['barbell'], muscles: { primary: ['quads', 'glutes'], secondary: ['core'] }, isMainLift: true, hint: 'Diepte boven gewicht' },
+            front_squat: { id: 'front_squat', name: 'Front Squat', pattern: 'squat', equipment: ['barbell'], muscles: { primary: ['quads'], secondary: ['core', 'upper_back'] }, hint: 'Ellebogen hoog' },
+            goblet_squat: { id: 'goblet_squat', name: 'Goblet Squat', pattern: 'squat', equipment: ['dumbbell', 'kettlebell'], muscles: { primary: ['quads', 'glutes'], secondary: ['core'] }, hint: 'Core aan' },
+            bulgarian_split_squat: { id: 'bulgarian_split_squat', name: 'Bulgarian Split Squat', pattern: 'squat', equipment: ['dumbbell', 'kettlebell', 'bodyweight'], muscles: { primary: ['quads', 'glutes'], secondary: ['core'] }, unilateral: true, hint: 'Per been' },
+            leg_press: { id: 'leg_press', name: 'Leg Press', pattern: 'squat', equipment: ['machine'], muscles: { primary: ['quads', 'glutes'], secondary: [] }, hint: 'Voeten hoog voor glutes' },
+            leg_press_uni: { id: 'leg_press_uni', name: 'Leg Press uni', pattern: 'squat', equipment: ['machine'], muscles: { primary: ['quads', 'glutes'], secondary: [] }, unilateral: true, hint: 'Voet hoog' },
+            hack_squat: { id: 'hack_squat', name: 'Hack Squat', pattern: 'squat', equipment: ['machine'], muscles: { primary: ['quads'], secondary: ['glutes'] }, hint: 'Lage voetplaatsing' },
+            lunges: { id: 'lunges', name: 'Lunges', pattern: 'squat', equipment: ['dumbbell', 'bodyweight'], muscles: { primary: ['quads', 'glutes'], secondary: ['core'] }, unilateral: true, hint: 'Stap ver genoeg' },
 
-        // Exercise alternatives for swapping
-        const ALTERNATIVES = {
-            'Back Squat': ['Front Squat', 'Goblet Squat', 'Leg Press'],
-            'Romanian Deadlift': ['Stiff Leg Deadlift', 'Good Mornings', 'Leg Curl'],
-            'Incline DB Press': ['Flat DB Press', 'Incline BB Press', 'Cable Fly'],
-            'Cable Row': ['Seated Cable Row', 'Machine Row', 'Barbell Row'],
-            'Dead Hang': ['Scapular Pull-ups', 'Farmer Walk'],
-            'Bench Press': ['DB Bench Press', 'Machine Chest Press', 'Dips'],
-            'Chest Supported Row': ['Seal Row', 'T-Bar Row', 'Cable Row'],
-            'Bulgarian Split Squat': ['Lunges', 'Step-ups', 'Single Leg Press'],
-            'Face Pulls': ['Rear Delt Fly', 'Band Pull-aparts'],
-            'BTBBH': ['Plank', 'Ab Wheel', 'Hanging Leg Raise'],
-            'Conventional Deadlift': ['Sumo Deadlift', 'Trap Bar Deadlift', 'Block Pull'],
-            'Leg Press uni': ['Leg Press', 'Hack Squat', 'Walking Lunges'],
-            'Dumbbell Row': ['Cable Row', 'Machine Row', 'Barbell Row'],
-            'Dips': ['Close-Grip Bench', 'Tricep Pushdown', 'Skull Crushers'],
-            'Push Press': ['Strict Press', 'DB Shoulder Press', 'Landmine Press'],
-            'Lat Pulldown': ['Pull-ups', 'Chin-ups', 'Machine Pullover'],
-            'Goblet Squat': ['Front Squat', 'Leg Press', 'Hack Squat'],
-            'Seated Cable Row': ['Machine Row', 'Barbell Row', 'Chest Supported Row']
+            // HINGE PATTERN
+            conventional_deadlift: { id: 'conventional_deadlift', name: 'Conventional Deadlift', pattern: 'hinge', equipment: ['barbell'], muscles: { primary: ['hamstrings', 'glutes', 'lower_back'], secondary: ['lats', 'traps', 'grip'] }, isMainLift: true, hint: 'Rug neutraal!' },
+            romanian_deadlift: { id: 'romanian_deadlift', name: 'Romanian Deadlift', pattern: 'hinge', equipment: ['barbell', 'dumbbell'], muscles: { primary: ['hamstrings', 'glutes'], secondary: ['lower_back'] }, hint: 'Hamstrings voelen' },
+            stiff_leg_deadlift: { id: 'stiff_leg_deadlift', name: 'Stiff Leg Deadlift', pattern: 'hinge', equipment: ['barbell', 'dumbbell'], muscles: { primary: ['hamstrings'], secondary: ['glutes', 'lower_back'] }, hint: 'Benen bijna gestrekt' },
+            good_morning: { id: 'good_morning', name: 'Good Morning', pattern: 'hinge', equipment: ['barbell'], muscles: { primary: ['hamstrings', 'lower_back'], secondary: ['glutes'] }, hint: 'Licht gewicht' },
+            hip_thrust: { id: 'hip_thrust', name: 'Hip Thrust', pattern: 'hinge', equipment: ['barbell', 'machine'], muscles: { primary: ['glutes'], secondary: ['hamstrings'] }, hint: 'Squeeze bovenaan' },
+            hip_hinge_stick: { id: 'hip_hinge_stick', name: 'Hip Hinge met stok', pattern: 'activation', equipment: ['bodyweight'], muscles: { primary: ['hamstrings'], secondary: [] }, isActivation: true, isCheck: true, hint: 'Techniek check' },
+
+            // PUSH HORIZONTAL
+            bench_press: { id: 'bench_press', name: 'Bench Press', pattern: 'push_horizontal', equipment: ['barbell'], muscles: { primary: ['chest', 'triceps'], secondary: ['front_delts'] }, isMainLift: true, hint: 'Schouderbladen gepind' },
+            incline_db_press: { id: 'incline_db_press', name: 'Incline DB Press', pattern: 'push_horizontal', equipment: ['dumbbell'], muscles: { primary: ['upper_chest', 'triceps'], secondary: ['front_delts'] }, angle: 'incline', hint: 'Bank 30-45°' },
+            incline_barbell_press: { id: 'incline_barbell_press', name: 'Incline Barbell Press', pattern: 'push_horizontal', equipment: ['barbell'], muscles: { primary: ['upper_chest', 'triceps'], secondary: ['front_delts'] }, angle: 'incline', hint: 'Bank 30°' },
+            dumbbell_bench_press: { id: 'dumbbell_bench_press', name: 'Dumbbell Bench Press', pattern: 'push_horizontal', equipment: ['dumbbell'], muscles: { primary: ['chest', 'triceps'], secondary: ['front_delts'] }, hint: 'Volle ROM' },
+            dips: { id: 'dips', name: 'Dips', pattern: 'push_horizontal', equipment: ['bodyweight'], muscles: { primary: ['chest', 'triceps'], secondary: ['front_delts'] }, hint: 'BW = bodyweight' },
+            machine_chest_press: { id: 'machine_chest_press', name: 'Machine Chest Press', pattern: 'push_horizontal', equipment: ['machine'], muscles: { primary: ['chest', 'triceps'], secondary: ['front_delts'] }, hint: 'Squeeze bovenaan' },
+
+            // PUSH VERTICAL
+            push_press: { id: 'push_press', name: 'Push Press', pattern: 'push_vertical', equipment: ['barbell'], muscles: { primary: ['shoulders', 'triceps'], secondary: ['upper_chest', 'core'] }, isMainLift: true, hint: 'Explosief uit dip' },
+            overhead_press: { id: 'overhead_press', name: 'Overhead Press', pattern: 'push_vertical', equipment: ['barbell'], muscles: { primary: ['shoulders', 'triceps'], secondary: ['core'] }, hint: 'Strict form' },
+            dumbbell_shoulder_press: { id: 'dumbbell_shoulder_press', name: 'DB Shoulder Press', pattern: 'push_vertical', equipment: ['dumbbell'], muscles: { primary: ['shoulders', 'triceps'], secondary: [] }, hint: 'Neutrale grip optie' },
+            landmine_press: { id: 'landmine_press', name: 'Landmine Press', pattern: 'push_vertical', equipment: ['barbell'], muscles: { primary: ['shoulders', 'chest'], secondary: ['core'] }, hint: 'Schouder-vriendelijk' },
+
+            // PULL HORIZONTAL
+            cable_row: { id: 'cable_row', name: 'Cable Row', pattern: 'pull_horizontal', equipment: ['cable'], muscles: { primary: ['lats', 'rhomboids'], secondary: ['biceps', 'rear_delts'] }, hint: 'Scapula squeeze' },
+            seated_cable_row: { id: 'seated_cable_row', name: 'Seated Cable Row', pattern: 'pull_horizontal', equipment: ['cable'], muscles: { primary: ['lats', 'rhomboids'], secondary: ['biceps', 'rear_delts'] }, hint: 'Scapula squeeze' },
+            chest_supported_row: { id: 'chest_supported_row', name: 'Chest Supported Row', pattern: 'pull_horizontal', equipment: ['machine', 'dumbbell'], muscles: { primary: ['lats', 'rhomboids'], secondary: ['biceps', 'rear_delts'] }, hint: 'Scapula focus' },
+            dumbbell_row: { id: 'dumbbell_row', name: 'Dumbbell Row', pattern: 'pull_horizontal', equipment: ['dumbbell'], muscles: { primary: ['lats', 'rhomboids'], secondary: ['biceps', 'rear_delts'] }, unilateral: true, hint: 'Per arm' },
+            barbell_row: { id: 'barbell_row', name: 'Barbell Row', pattern: 'pull_horizontal', equipment: ['barbell'], muscles: { primary: ['lats', 'rhomboids'], secondary: ['biceps', 'lower_back'] }, hint: '45° torso' },
+            t_bar_row: { id: 't_bar_row', name: 'T-Bar Row', pattern: 'pull_horizontal', equipment: ['barbell'], muscles: { primary: ['lats', 'rhomboids'], secondary: ['biceps'] }, hint: 'Borst op pad' },
+            face_pulls: { id: 'face_pulls', name: 'Face Pulls', pattern: 'pull_horizontal', equipment: ['cable'], muscles: { primary: ['rear_delts', 'rhomboids'], secondary: ['external_rotators'] }, isAccessory: true, hint: 'Ellebogen hoog' },
+
+            // PULL VERTICAL
+            lat_pulldown: { id: 'lat_pulldown', name: 'Lat Pulldown', pattern: 'pull_vertical', equipment: ['cable'], muscles: { primary: ['lats'], secondary: ['biceps', 'rear_delts'] }, hint: 'Voorzichtig lat!' },
+            pull_ups: { id: 'pull_ups', name: 'Pull Ups', pattern: 'pull_vertical', equipment: ['bodyweight'], muscles: { primary: ['lats'], secondary: ['biceps', 'rear_delts'] }, hint: 'Volle ROM' },
+            chin_ups: { id: 'chin_ups', name: 'Chin Ups', pattern: 'pull_vertical', equipment: ['bodyweight'], muscles: { primary: ['lats', 'biceps'], secondary: ['rear_delts'] }, hint: 'Onderhandse grip' },
+            neutral_grip_pulldown: { id: 'neutral_grip_pulldown', name: 'Neutral Grip Pulldown', pattern: 'pull_vertical', equipment: ['cable'], muscles: { primary: ['lats'], secondary: ['biceps'] }, hint: 'Schouder-vriendelijk' },
+
+            // CARRY / GRIP
+            dead_hang: { id: 'dead_hang', name: 'Dead Hang', pattern: 'carry', equipment: ['bodyweight'], muscles: { primary: ['grip', 'lats'], secondary: ['core'] }, isTimed: true, hint: 'Max hold' },
+            btbbh: { id: 'btbbh', name: 'BTBBH', pattern: 'carry', equipment: ['barbell'], muscles: { primary: ['grip', 'traps'], secondary: ['core'] }, isTimed: true, hint: '2x max hold' },
+            farmer_walk: { id: 'farmer_walk', name: 'Farmer Walk', pattern: 'carry', equipment: ['dumbbell', 'kettlebell'], muscles: { primary: ['grip', 'traps', 'core'], secondary: [] }, isTimed: true, hint: 'Schouders laag' },
+
+            // ACTIVATION
+            scapula_retractions: { id: 'scapula_retractions', name: 'Scapula Retractions', pattern: 'activation', equipment: ['bodyweight'], muscles: { primary: ['rhomboids', 'mid_traps'], secondary: [] }, isActivation: true, isCheck: true, hint: 'Activatie' },
+            band_pull_aparts: { id: 'band_pull_aparts', name: 'Band Pull Aparts', pattern: 'activation', equipment: ['band'], muscles: { primary: ['rear_delts', 'rhomboids'], secondary: [] }, isActivation: true, hint: 'Lichte band' }
         };
 
-        // Templates
-        const TEMPLATES = {
-            A: { name: 'Squat', exercises: [
-                { name: 'Back Squat', sets: 4, reps: 5, type: 'weight', hint: 'Diepte boven gewicht', ph: '60' },
-                { name: 'Romanian Deadlift', sets: 3, reps: 10, type: 'weight', hint: 'Hamstrings voelen', ph: '70' },
-                { name: 'Incline DB Press', sets: 3, reps: 10, type: 'weight', hint: 'Bank 30-45°', ph: '56', hasEquip: true },
-                { name: 'Cable Row', sets: 3, reps: 10, type: 'weight', hint: 'Scapula squeeze', ph: '85' },
-                { name: 'Dead Hang', sets: 1, reps: null, type: 'timed', hint: 'Max hold', phW: 'BW', phT: '50' }
-            ]},
-            B: { name: 'Bench Press', exercises: [
-                { name: 'Scapula Retractions', sets: 2, reps: 15, type: 'check', hint: 'Activatie' },
-                { name: 'Bench Press', sets: 4, reps: 5, type: 'weight', hint: 'Schouderbladen gepind', ph: '85' },
-                { name: 'Chest Supported Row', sets: 3, reps: 10, type: 'weight', hint: 'Scapula focus', ph: '45' },
-                { name: 'Bulgarian Split Squat', sets: 3, reps: 10, type: 'weight', hint: 'Per been', ph: '20', hasEquip: true },
-                { name: 'Face Pulls', sets: 2, reps: 15, type: 'weight', hint: 'Ellebogen hoog', ph: '45' },
-                { name: 'BTBBH', sets: 2, reps: null, type: 'timed', hint: '2x max hold', phW: '60', phT: '60' }
-            ]},
-            C: { name: 'Deadlift', exercises: [
-                { name: 'Hip Hinge met stok', sets: 2, reps: 8, type: 'check', hint: 'Techniek check' },
-                { name: 'Conventional Deadlift', sets: 4, reps: 5, type: 'weight', hint: 'Rug neutraal!', ph: '110' },
-                { name: 'Leg Press uni', sets: 3, reps: 10, type: 'weight', hint: 'Voet hoog', ph: '70' },
-                { name: 'Dumbbell Row', sets: 3, reps: 10, type: 'weight', hint: 'Per arm', ph: '26', hasEquip: true },
-                { name: 'Dips', sets: 3, reps: 10, type: 'weight', hint: 'BW = bodyweight', ph: 'BW' },
-                { name: 'Dead Hang', sets: 1, reps: null, type: 'timed', hint: 'Decompressie', phW: 'BW', phT: '50' }
-            ]},
-            D: { name: 'Push Press', exercises: [
-                { name: 'Scapula Retractions', sets: 2, reps: 15, type: 'check', hint: 'Activatie' },
-                { name: 'Push Press', sets: 4, reps: 5, type: 'weight', hint: 'Explosief uit dip', ph: '50' },
-                { name: 'Lat Pulldown', sets: 3, reps: 10, type: 'weight', hint: 'Voorzichtig lat!', ph: '55' },
-                { name: 'Goblet Squat', sets: 3, reps: 10, type: 'weight', hint: 'Core aan', ph: '22', hasEquip: true },
-                { name: 'Seated Cable Row', sets: 3, reps: 10, type: 'weight', hint: 'Scapula squeeze', ph: '80' },
-                { name: 'BTBBH', sets: 2, reps: null, type: 'timed', hint: '2x max hold', phW: '60', phT: '60' }
-            ]}
+        // ===========================================
+        // TRAINING TEMPLATES (slot-based)
+        // ===========================================
+        const SLOT_TEMPLATES = {
+            A: {
+                name: 'Squat',
+                mainLift: 'back_squat',
+                slots: [
+                    { order: 1, role: 'main', exerciseId: 'back_squat', sets: 4, reps: 5 },
+                    { order: 2, role: 'accessory', pattern: 'hinge', sets: 3, reps: 10, exclude: ['conventional_deadlift'] },
+                    { order: 3, role: 'accessory', pattern: 'push_horizontal', angle: 'incline', sets: 3, reps: 10 },
+                    { order: 4, role: 'accessory', pattern: 'pull_horizontal', sets: 3, reps: 10 },
+                    { order: 5, role: 'finisher', pattern: 'carry', sets: 1, isTimed: true }
+                ]
+            },
+            B: {
+                name: 'Bench Press',
+                mainLift: 'bench_press',
+                slots: [
+                    { order: 1, role: 'activation', exerciseId: 'scapula_retractions', sets: 2, reps: 15 },
+                    { order: 2, role: 'main', exerciseId: 'bench_press', sets: 4, reps: 5 },
+                    { order: 3, role: 'accessory', pattern: 'pull_horizontal', sets: 3, reps: 10 },
+                    { order: 4, role: 'accessory', pattern: 'squat', prefer: 'unilateral', sets: 3, reps: 10 },
+                    { order: 5, role: 'accessory', exerciseId: 'face_pulls', sets: 2, reps: 15 },
+                    { order: 6, role: 'finisher', exerciseId: 'btbbh', sets: 2, isTimed: true }
+                ]
+            },
+            C: {
+                name: 'Deadlift',
+                mainLift: 'conventional_deadlift',
+                slots: [
+                    { order: 1, role: 'activation', exerciseId: 'hip_hinge_stick', sets: 2, reps: 8 },
+                    { order: 2, role: 'main', exerciseId: 'conventional_deadlift', sets: 4, reps: 5 },
+                    { order: 3, role: 'accessory', pattern: 'squat', prefer: 'unilateral', sets: 3, reps: 10 },
+                    { order: 4, role: 'accessory', pattern: 'pull_horizontal', prefer: 'unilateral', sets: 3, reps: 10 },
+                    { order: 5, role: 'accessory', pattern: 'push_horizontal', sets: 3, reps: 10 },
+                    { order: 6, role: 'finisher', exerciseId: 'dead_hang', sets: 1, isTimed: true }
+                ]
+            },
+            D: {
+                name: 'Push Press',
+                mainLift: 'push_press',
+                slots: [
+                    { order: 1, role: 'activation', exerciseId: 'scapula_retractions', sets: 2, reps: 15 },
+                    { order: 2, role: 'main', exerciseId: 'push_press', sets: 4, reps: 5 },
+                    { order: 3, role: 'accessory', pattern: 'pull_vertical', sets: 3, reps: 10 },
+                    { order: 4, role: 'accessory', pattern: 'squat', exclude: ['back_squat', 'front_squat'], sets: 3, reps: 10 },
+                    { order: 5, role: 'accessory', pattern: 'pull_horizontal', sets: 3, reps: 10 },
+                    { order: 6, role: 'finisher', exerciseId: 'btbbh', sets: 2, isTimed: true }
+                ]
+            }
         };
 
         // Initial data
@@ -368,6 +421,71 @@
         };
         const save = () => localStorage.setItem('liftlog3', JSON.stringify(data));
 
+        // ===========================================
+        // SMART SELECTION LOGIC
+        // ===========================================
+        function getRecentExerciseIds(days = 3) {
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - days);
+            return data
+                .filter(t => new Date(t.date) >= cutoff)
+                .flatMap(t => t.exercises.map(ex => ex.id || ex.name))
+                .filter(Boolean);
+        }
+
+        function selectExerciseForSlot(slot) {
+            // 1. Als slot een vast exerciseId heeft, gebruik die
+            if (slot.exerciseId) {
+                return EXERCISES[slot.exerciseId];
+            }
+
+            // 2. Filter oefeningen op pattern
+            let candidates = Object.values(EXERCISES)
+                .filter(ex => ex.pattern === slot.pattern);
+
+            // 3. Filter op angle indien gespecificeerd
+            if (slot.angle) {
+                const withAngle = candidates.filter(ex => ex.angle === slot.angle);
+                if (withAngle.length > 0) candidates = withAngle;
+            }
+
+            // 4. Filter op unilateral indien preferred
+            if (slot.prefer === 'unilateral') {
+                const unilateral = candidates.filter(ex => ex.unilateral);
+                if (unilateral.length > 0) candidates = unilateral;
+            }
+
+            // 5. Exclude specifieke oefeningen
+            if (slot.exclude) {
+                candidates = candidates.filter(ex => !slot.exclude.includes(ex.id));
+            }
+
+            // 6. Exclude main lifts voor accessory slots
+            if (slot.role === 'accessory') {
+                candidates = candidates.filter(ex => !ex.isMainLift);
+            }
+
+            // 7. Exclude recent gedane oefeningen (laatste 3 trainingen)
+            const recentIds = getRecentExerciseIds(7);
+            const notRecent = candidates.filter(ex => !recentIds.includes(ex.id) && !recentIds.includes(ex.name));
+
+            // 8. Als er niet-recente opties zijn, gebruik die
+            if (notRecent.length > 0) {
+                candidates = notRecent;
+            }
+
+            // 9. Return random uit overgebleven candidates
+            if (candidates.length === 0) return null;
+            return candidates[Math.floor(Math.random() * candidates.length)];
+        }
+
+        function getAlternativesForExercise(exercise) {
+            // Vind alternatieven met hetzelfde pattern
+            return Object.values(EXERCISES)
+                .filter(ex => ex.pattern === exercise.pattern && ex.id !== exercise.id && !ex.isMainLift && !ex.isActivation)
+                .sort((a, b) => a.name.localeCompare(b.name));
+        }
+
         // Update day buttons to show which have data
         function updateDayButtons() {
             const daysWithData = new Set(data.map(t => t.day));
@@ -399,35 +517,111 @@
             };
         });
 
-        // Build form
+        // Build form using smart selection
         function buildForm() {
             if (!selectedDay) { exEl.innerHTML = ''; return; }
-            const tmpl = TEMPLATES[selectedDay];
-            current = { day: selectedDay, lift: tmpl.name, exercises: tmpl.exercises.map(ex => {
-                const prev = getPrev(selectedDay, ex.name);
-                if (ex.type === 'check') return { ...ex, done: false, skipped: false, notes: '' };
-                if (ex.type === 'timed') {
-                    let sets = prev?.sets && prev.sets.length ? prev.sets.map(s => ({w: s.w||'', t: s.t||''})) : Array(ex.sets).fill().map(() => ({w:'',t:''}));
-                    return { ...ex, setsData: sets, skipped: false, notes: '', equip: prev?.equip || '' };
-                }
-                let sets = prev?.sets && prev.sets.length ? prev.sets.map(s => ({w: s.w||'', r: s.r||ex.reps, warmup: s.warmup||false})) : Array(ex.sets).fill().map(() => ({w:'',r:ex.reps,warmup:false}));
-                while (sets.length < ex.sets) sets.push({w:'',r:ex.reps,warmup:false});
-                return { ...ex, setsData: sets, skipped: false, notes: '', equip: prev?.equip || '' };
-            })};
+            const tmpl = SLOT_TEMPLATES[selectedDay];
+
+            current = {
+                day: selectedDay,
+                lift: tmpl.name,
+                exercises: tmpl.slots.map(slot => {
+                    // Selecteer oefening voor deze slot
+                    const exercise = selectExerciseForSlot(slot);
+                    if (!exercise) return null;
+
+                    // Bepaal type
+                    const type = exercise.isCheck || exercise.isActivation && exercise.isCheck ? 'check' :
+                                 exercise.isTimed || slot.isTimed ? 'timed' : 'weight';
+
+                    // Zoek vorige data voor deze oefening
+                    const prev = getPrev(selectedDay, exercise.name);
+
+                    // Basis exercise object
+                    const ex = {
+                        id: exercise.id,
+                        name: exercise.name,
+                        pattern: exercise.pattern,
+                        sets: slot.sets,
+                        reps: slot.reps || null,
+                        type: type,
+                        hint: exercise.hint || '',
+                        role: slot.role,
+                        canSwap: slot.role === 'accessory' || slot.role === 'finisher',
+                        skipped: false,
+                        notes: ''
+                    };
+
+                    // Equipment opties
+                    if (exercise.equipment && exercise.equipment.length > 1) {
+                        ex.hasEquip = true;
+                        ex.equipOptions = exercise.equipment;
+                        ex.equip = prev?.equip || '';
+                    }
+
+                    // Sets data
+                    if (type === 'check') {
+                        ex.done = false;
+                    } else if (type === 'timed') {
+                        ex.setsData = prev?.sets?.length
+                            ? prev.sets.map(s => ({w: s.w||'', t: s.t||''}))
+                            : Array(slot.sets).fill().map(() => ({w:'',t:''}));
+                    } else {
+                        ex.setsData = prev?.sets?.length
+                            ? prev.sets.map(s => ({w: s.w||'', r: s.r||slot.reps, warmup: s.warmup||false}))
+                            : Array(slot.sets).fill().map(() => ({w:'',r:slot.reps,warmup:false}));
+                        while (ex.setsData.length < slot.sets) {
+                            ex.setsData.push({w:'',r:slot.reps,warmup:false});
+                        }
+                    }
+
+                    return ex;
+                }).filter(Boolean)
+            };
             renderForm();
         }
 
         // Swap exercise
-        function swapExercise(ei, newName, isOriginal) {
+        function swapExercise(ei, newExerciseId, isOriginal) {
             const ex = current.exercises[ei];
+            const newExercise = EXERCISES[newExerciseId];
+            if (!newExercise) return;
+
             if (isOriginal) {
+                // Terug naar origineel
+                ex.id = ex.originalId;
                 ex.name = ex.originalName;
+                ex.pattern = ex.originalPattern;
+                ex.hint = EXERCISES[ex.originalId]?.hint || '';
+                delete ex.originalId;
                 delete ex.originalName;
+                delete ex.originalPattern;
             } else {
-                if (!ex.originalName) ex.originalName = ex.name;
-                ex.name = newName;
+                // Sla origineel op als nog niet gedaan
+                if (!ex.originalId) {
+                    ex.originalId = ex.id;
+                    ex.originalName = ex.name;
+                    ex.originalPattern = ex.pattern;
+                }
+                // Wissel naar nieuwe oefening
+                ex.id = newExercise.id;
+                ex.name = newExercise.name;
+                ex.pattern = newExercise.pattern;
+                ex.hint = newExercise.hint || '';
             }
-            // Reset sets data for the new exercise
+
+            // Update equipment opties
+            const exercise = EXERCISES[ex.id];
+            if (exercise?.equipment?.length > 1) {
+                ex.hasEquip = true;
+                ex.equipOptions = exercise.equipment;
+            } else {
+                ex.hasEquip = false;
+                delete ex.equipOptions;
+            }
+            ex.equip = '';
+
+            // Reset sets data
             ex.setsData = Array(ex.sets).fill().map(() => ex.type === 'timed' ? {w:'',t:''} : {w:'',r:ex.reps||'',warmup:false});
             renderForm();
         }
@@ -448,16 +642,16 @@
                         prevHtml = `<div class="ex-prev"><span class="ex-prev-date">${fmtDate(prev.date)}</span> ${setsStr}</div>`;
                     }
                 }
-                const alts = ALTERNATIVES[ex.originalName || ex.name] || [];
-                const swapHtml = alts.length ? `<button class="swap-btn" data-ei="${ei}">⇄</button>` : '';
+                const swapHtml = ex.canSwap ? `<button class="swap-btn" data-ei="${ei}">⇄</button>` : '';
                 html += `<div class="ex-card ${cardClass}"><div class="ex-head"><div><span class="ex-name">${ex.name}</span><span class="ex-btns"><button class="skip-btn ${ex.skipped?'active':''}" data-ei="${ei}">${ex.skipped?'⏭️ Overgeslagen':'Skip'}</button>${swapHtml}</span></div><span class="ex-rx">${ex.sets}x${ex.reps||'max'}</span></div><div class="ex-hint">${ex.hint}</div>${prevHtml}`;
-                
+
                 if (!ex.skipped) {
                     // Equipment selector for applicable exercises
-                    if (ex.hasEquip) {
+                    if (ex.hasEquip && ex.equipOptions) {
                         html += `<div class="equip-row">`;
-                        EQUIP_OPTIONS.forEach(eq => {
-                            html += `<button class="equip-btn ${ex.equip===eq?'active':''}" data-ei="${ei}" data-eq="${eq}">${eq}</button>`;
+                        ex.equipOptions.forEach(eq => {
+                            const eqLabel = eq === 'dumbbell' ? 'DB' : eq === 'kettlebell' ? 'KB' : eq === 'barbell' ? 'BB' : eq;
+                            html += `<button class="equip-btn ${ex.equip===eq?'active':''}" data-ei="${ei}" data-eq="${eq}">${eqLabel}</button>`;
                         });
                         html += `</div>`;
                     }
@@ -514,24 +708,32 @@
                     document.querySelectorAll('.swap-menu').forEach(m => m.remove());
                     const ei = +btn.dataset.ei;
                     const ex = current.exercises[ei];
-                    const alts = ALTERNATIVES[ex.originalName || ex.name] || [];
-                    const original = ex.originalName || ex.name;
+                    const currentExercise = EXERCISES[ex.id];
+                    const alts = getAlternativesForExercise(currentExercise);
+                    const recentIds = getRecentExerciseIds(7);
+
                     const menu = document.createElement('div');
                     menu.className = 'swap-menu';
+
                     // Add original option if swapped
-                    if (ex.originalName) {
+                    if (ex.originalId) {
                         const origBtn = document.createElement('button');
                         origBtn.textContent = `↩ ${ex.originalName}`;
-                        origBtn.onclick = () => { swapExercise(ei, ex.originalName, true); menu.remove(); };
+                        origBtn.onclick = () => { swapExercise(ei, ex.originalId, true); menu.remove(); };
                         menu.appendChild(origBtn);
                     }
+
+                    // Add alternatives
                     alts.forEach(alt => {
-                        if (alt === ex.name) return;
+                        if (alt.id === ex.id) return;
                         const altBtn = document.createElement('button');
-                        altBtn.textContent = alt;
-                        altBtn.onclick = () => { swapExercise(ei, alt, false); menu.remove(); };
+                        const isRecent = recentIds.includes(alt.id) || recentIds.includes(alt.name);
+                        altBtn.textContent = alt.name;
+                        altBtn.style.color = isRecent ? 'var(--text3)' : '';
+                        altBtn.onclick = () => { swapExercise(ei, alt.id, false); menu.remove(); };
                         menu.appendChild(altBtn);
                     });
+
                     btn.closest('.ex-head').appendChild(menu);
                     const closeMenu = e2 => { if (!menu.contains(e2.target)) { menu.remove(); document.removeEventListener('click', closeMenu); } };
                     setTimeout(() => document.addEventListener('click', closeMenu), 0);
@@ -567,10 +769,11 @@
                 lift: current.lift,
                 week: +$('week-num').textContent,
                 exercises: current.exercises.map(ex => {
-                    if (ex.type === 'check') return { name: ex.name, type: 'check', done: ex.done, skipped: ex.skipped, notes: ex.notes };
-                    const result = { 
-                        name: ex.name, 
-                        type: ex.type, 
+                    if (ex.type === 'check') return { id: ex.id, name: ex.name, type: 'check', done: ex.done, skipped: ex.skipped, notes: ex.notes };
+                    const result = {
+                        id: ex.id,
+                        name: ex.name,
+                        type: ex.type,
                         sets: ex.skipped ? [] : ex.setsData.filter(s => s.w || s.t).map(s => ex.type === 'timed' ? {w:s.w,t:s.t} : {w:s.w,r:s.r,warmup:s.warmup}),
                         skipped: ex.skipped,
                         notes: ex.notes
