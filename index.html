@@ -712,8 +712,21 @@
 
         function getAlternativesForExercise(exercise) {
             // Vind alternatieven met hetzelfde pattern
+            // Voor activation oefeningen: toon andere activation oefeningen
+            // Voor reguliere oefeningen: toon geen activation oefeningen
+            const isActivation = EXERCISES[exercise.id]?.isActivation || exercise.pattern === 'activation';
             return Object.values(EXERCISES)
-                .filter(ex => ex.pattern === exercise.pattern && ex.id !== exercise.id && !ex.isMainLift && !ex.isActivation)
+                .filter(ex => {
+                    if (ex.id === exercise.id) return false;
+                    if (ex.isMainLift) return false;
+                    if (isActivation) {
+                        // Toon alleen activation oefeningen
+                        return ex.isActivation || ex.pattern === 'activation';
+                    } else {
+                        // Toon alleen oefeningen van hetzelfde pattern, geen activation
+                        return ex.pattern === exercise.pattern && !ex.isActivation;
+                    }
+                })
                 .sort((a, b) => a.name.localeCompare(b.name));
         }
 
@@ -824,7 +837,7 @@
                         type: type,
                         hint: exercise.hint || '',
                         role: slot.role,
-                        canSwap: slot.role === 'accessory' || slot.role === 'finisher',
+                        canSwap: slot.role === 'accessory' || slot.role === 'finisher' || slot.role === 'activation',
                         skipped: false,
                         collapsed: globalCollapsed, // Gebruik globale collapsed state
                         notes: ''
@@ -1082,11 +1095,24 @@
             });
             // Collapse/expand knop handler
             exEl.querySelectorAll('.collapse-btn').forEach(btn => {
-                btn.onclick = () => {
+                btn.onclick = (e) => {
+                    e.stopPropagation();
                     const ei = +btn.dataset.ei;
                     current.exercises[ei].collapsed = !current.exercises[ei].collapsed;
                     renderForm();
                 };
+            });
+
+            // Klik op ingeklapte card om uit te klappen
+            exEl.querySelectorAll('.ex-card.collapsed').forEach(card => {
+                card.onclick = (e) => {
+                    // Niet uitklappen als we op een button klikken
+                    if (e.target.closest('button')) return;
+                    const ei = +card.dataset.ei;
+                    current.exercises[ei].collapsed = false;
+                    renderForm();
+                };
+                card.style.cursor = 'pointer';
             });
 
             // Order buttons (move up/down)
