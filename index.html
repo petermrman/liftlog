@@ -223,6 +223,10 @@
         .dash-export-desc { font-size: 0.75rem; color: var(--text2); margin: 0; }
         .dash-export-btns { display: flex; gap: 0.5rem; }
         .dash-export-btn { flex: 1; padding: 0.625rem; background: var(--bg3); border: 1px solid var(--border); border-radius: 0.5rem; color: var(--text); font-size: 0.75rem; cursor: pointer; }
+        .drop-zone { border: 2px dashed var(--border); border-radius: 0.75rem; padding: 1.5rem; text-align: center; cursor: pointer; transition: all 0.2s; }
+        .drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); background: rgba(245,158,11,0.1); }
+        .drop-zone-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+        .drop-zone-text { font-size: 0.75rem; color: var(--text2); }
         .dash-export-btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
 
         /* Exercises Browser */
@@ -253,7 +257,7 @@
 <body>
     <header class="header">
         <div class="header-content">
-            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v3.3</small></div>
+            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v3.4</small></div>
             <nav class="nav">
                 <button data-screen="dashboard">Home</button>
                 <button class="active" data-screen="new">Nieuw</button>
@@ -359,14 +363,14 @@
             </div>
             <div class="dash-section">
                 <div class="dash-title">❤️ Apple Health Import</div>
-                <div class="dash-export">
-                    <p class="dash-export-desc">Importeer workout data (hartslag, calorieën) uit Apple Health CSV export</p>
-                    <div class="dash-export-btns">
-                        <button class="dash-export-btn" id="health-import-btn">📥 Importeer CSV</button>
+                <div class="drop-zone" id="health-drop-zone">
+                    <div class="drop-zone-content">
+                        <div class="drop-zone-icon">📥</div>
+                        <div class="drop-zone-text">Sleep CSV hier of klik om te selecteren</div>
                     </div>
                     <input type="file" class="file-input" id="health-file-input" accept=".csv">
-                    <div id="health-import-result" style="margin-top:0.75rem;font-size:0.75rem;"></div>
                 </div>
+                <div id="health-import-result" style="margin-top:0.75rem;font-size:0.75rem;"></div>
             </div>
         </section>
 
@@ -1793,10 +1797,14 @@ END:VEVENT
         $('ics-export-month').onclick = () => exportICS('month');
         $('ics-export-week').onclick = () => exportICS('week');
 
-        // Apple Health CSV Import
-        $('health-import-btn').onclick = () => $('health-file-input').click();
-        $('health-file-input').onchange = e => {
-            const file = e.target.files[0]; if (!file) return;
+        // Apple Health CSV Import - Drop zone
+        const dropZone = $('health-drop-zone');
+
+        function handleHealthFile(file) {
+            if (!file || !file.name.endsWith('.csv')) {
+                $('health-import-result').innerHTML = '<span style="color:var(--danger)">Selecteer een CSV bestand</span>';
+                return;
+            }
             const reader = new FileReader();
             reader.onload = ev => {
                 try {
@@ -1812,7 +1820,23 @@ END:VEVENT
                 }
             };
             reader.readAsText(file);
+        }
+
+        // Click to select
+        dropZone.onclick = () => $('health-file-input').click();
+        $('health-file-input').onchange = e => {
+            handleHealthFile(e.target.files[0]);
             e.target.value = '';
+        };
+
+        // Drag and drop
+        dropZone.ondragover = e => { e.preventDefault(); dropZone.classList.add('drag-over'); };
+        dropZone.ondragleave = e => { e.preventDefault(); dropZone.classList.remove('drag-over'); };
+        dropZone.ondrop = e => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            handleHealthFile(file);
         };
 
         function parseHealthCSV(csvText) {
