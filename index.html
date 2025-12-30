@@ -162,6 +162,28 @@
         .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
         .file-input { display: none; }
 
+        /* Mode Toggle */
+        .mode-toggle { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+        .mode-btn { flex: 1; padding: 0.75rem; border: 2px solid var(--border); background: var(--bg2); color: var(--text2); font-size: 0.875rem; font-weight: 600; border-radius: 0.5rem; cursor: pointer; text-align: center; }
+        .mode-btn.active { border-color: var(--accent); color: var(--text); background: rgba(245,158,11,0.1); }
+
+        /* Cardio */
+        .cardio-types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 1rem; }
+        .cardio-btn { padding: 0.75rem 0.5rem; border: 2px solid var(--border); background: var(--bg2); color: var(--text2); font-size: 0.75rem; font-weight: 600; border-radius: 0.75rem; cursor: pointer; text-align: center; }
+        .cardio-btn span { font-size: 1.5rem; display: block; margin-bottom: 0.25rem; }
+        .cardio-btn.active { border-color: var(--accent); color: var(--text); }
+        .cardio-form { background: var(--bg2); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1rem; }
+        .cardio-row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+        .cardio-field { flex: 1; }
+        .cardio-field label { display: block; font-size: 0.7rem; color: var(--text2); margin-bottom: 0.25rem; }
+        .cardio-field input { width: 100%; padding: 0.625rem; background: var(--bg3); border: 1px solid var(--border); border-radius: 0.375rem; color: var(--text); font-size: 1rem; text-align: center; }
+        .cardio-field input:focus { outline: none; border-color: var(--accent); }
+        .intensity-btns { display: flex; gap: 0.25rem; }
+        .intensity-btn { flex: 1; padding: 0.5rem; border: 1px solid var(--border); background: var(--bg3); color: var(--text2); font-size: 0.625rem; border-radius: 0.25rem; cursor: pointer; }
+        .intensity-btn.active { border-color: var(--success); color: var(--success); background: rgba(34,197,94,0.2); }
+        .intensity-btn.active.medium { border-color: var(--accent); color: var(--accent); background: rgba(245,158,11,0.2); }
+        .intensity-btn.active.high { border-color: var(--danger); color: var(--danger); background: rgba(239,68,68,0.2); }
+
         /* Dashboard */
         .dash-section { background: var(--bg2); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1rem; margin-bottom: 1rem; }
         .dash-title { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text); }
@@ -225,7 +247,7 @@
 <body>
     <header class="header">
         <div class="header-content">
-            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v3.0</small></div>
+            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v3.1</small></div>
             <nav class="nav">
                 <button data-screen="dashboard">Home</button>
                 <button class="active" data-screen="new">Nieuw</button>
@@ -238,12 +260,29 @@
 
     <main class="main">
         <section id="screen-new" class="screen active">
-            <div class="week-bar">Week <span id="week-num">1</span> | RPE 6-7</div>
-            <div class="days" id="day-btns">
-                <button class="day-btn" data-day="A"><span>A</span>Squat</button>
-                <button class="day-btn" data-day="B"><span>B</span>Bench</button>
-                <button class="day-btn" data-day="C"><span>C</span>Deadlift</button>
-                <button class="day-btn" data-day="D"><span>D</span>Push Press</button>
+            <div class="mode-toggle">
+                <button class="mode-btn active" data-mode="lifting">🏋️ Lifting</button>
+                <button class="mode-btn" data-mode="cardio">🏃 Cardio</button>
+            </div>
+            <div id="lifting-section">
+                <div class="week-bar">Week <span id="week-num">1</span> | RPE 6-7</div>
+                <div class="days" id="day-btns">
+                    <button class="day-btn" data-day="A"><span>A</span>Squat</button>
+                    <button class="day-btn" data-day="B"><span>B</span>Bench</button>
+                    <button class="day-btn" data-day="C"><span>C</span>Deadlift</button>
+                    <button class="day-btn" data-day="D"><span>D</span>Push Press</button>
+                </div>
+            </div>
+            <div id="cardio-section" style="display:none;">
+                <div class="cardio-types" id="cardio-types">
+                    <button class="cardio-btn" data-type="running"><span>🏃</span>Hardlopen</button>
+                    <button class="cardio-btn" data-type="cycling"><span>🚴</span>Fietsen</button>
+                    <button class="cardio-btn" data-type="rowing"><span>🚣</span>Roeien</button>
+                    <button class="cardio-btn" data-type="hiit"><span>⚡</span>HIIT</button>
+                    <button class="cardio-btn" data-type="walking"><span>🚶</span>Wandelen</button>
+                    <button class="cardio-btn" data-type="other"><span>💪</span>Anders</button>
+                </div>
+                <div id="cardio-form-container"></div>
             </div>
             <div class="date-row">
                 <label>Datum & Starttijd</label>
@@ -542,6 +581,16 @@
             ]}
         ];
 
+        // Cardio types
+        const CARDIO_TYPES = {
+            running: { id: 'running', name: 'Hardlopen', icon: '🏃', hasDistance: true, unit: 'km' },
+            cycling: { id: 'cycling', name: 'Fietsen', icon: '🚴', hasDistance: true, unit: 'km' },
+            rowing: { id: 'rowing', name: 'Roeien', icon: '🚣', hasDistance: true, unit: 'm' },
+            hiit: { id: 'hiit', name: 'HIIT', icon: '⚡', hasDistance: false, hasIntervals: true },
+            walking: { id: 'walking', name: 'Wandelen', icon: '🚶', hasDistance: true, unit: 'km' },
+            other: { id: 'other', name: 'Anders', icon: '💪', hasDistance: false }
+        };
+
         // State
         let data = JSON.parse(localStorage.getItem('liftlog3')) || INIT;
         if (!localStorage.getItem('liftlog3')) localStorage.setItem('liftlog3', JSON.stringify(INIT));
@@ -549,7 +598,10 @@
         let current = null;
         let editIdx = null;
         let editData = null;
-        let globalCollapsed = false; // Onthoudt of alles ingeklapt moet zijn
+        let globalCollapsed = false;
+        let currentMode = 'lifting';
+        let selectedCardioType = null;
+        let cardioData = null;
 
         // DOM
         const $ = id => document.getElementById(id);
@@ -696,6 +748,77 @@
                 if (btn.dataset.screen === 'exercises') renderExercises();
             };
         });
+
+        // Mode toggle (Lifting / Cardio)
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentMode = btn.dataset.mode;
+                $('lifting-section').style.display = currentMode === 'lifting' ? 'block' : 'none';
+                $('cardio-section').style.display = currentMode === 'cardio' ? 'block' : 'none';
+                $('exercises').style.display = currentMode === 'lifting' ? 'block' : 'none';
+                $('collapse-all-row').style.display = currentMode === 'lifting' && current ? 'flex' : 'none';
+                updateSave();
+            };
+        });
+
+        // Cardio type selection
+        document.querySelectorAll('.cardio-btn').forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll('.cardio-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedCardioType = btn.dataset.type;
+                buildCardioForm();
+            };
+        });
+
+        function buildCardioForm() {
+            if (!selectedCardioType) { $('cardio-form-container').innerHTML = ''; return; }
+            const type = CARDIO_TYPES[selectedCardioType];
+            cardioData = { type: selectedCardioType, duration: '', distance: '', intensity: 'medium', intervals: '', notes: '' };
+
+            let html = '<div class="cardio-form">';
+            html += '<div class="cardio-row">';
+            html += '<div class="cardio-field"><label>Duur (min)</label><input type="text" inputmode="numeric" id="cardio-duration" placeholder="30"></div>';
+            if (type.hasDistance) {
+                html += `<div class="cardio-field"><label>Afstand (${type.unit})</label><input type="text" inputmode="decimal" id="cardio-distance" placeholder="5"></div>`;
+            }
+            if (type.hasIntervals) {
+                html += '<div class="cardio-field"><label>Intervallen</label><input type="text" id="cardio-intervals" placeholder="8x30s"></div>';
+            }
+            html += '</div>';
+
+            html += '<div class="cardio-field" style="margin-bottom:0.75rem;"><label>Intensiteit</label>';
+            html += '<div class="intensity-btns">';
+            html += '<button class="intensity-btn" data-int="low">Laag</button>';
+            html += '<button class="intensity-btn active medium" data-int="medium">Medium</button>';
+            html += '<button class="intensity-btn" data-int="high">Hoog</button>';
+            html += '</div></div>';
+
+            html += '<div class="cardio-field"><label>Notities</label><textarea class="notes-input" id="cardio-notes" placeholder="Hoe voelde het?"></textarea></div>';
+            html += '</div>';
+
+            $('cardio-form-container').innerHTML = html;
+
+            // Event listeners
+            $('cardio-duration').oninput = e => { cardioData.duration = e.target.value; updateSave(); };
+            if ($('cardio-distance')) $('cardio-distance').oninput = e => { cardioData.distance = e.target.value; updateSave(); };
+            if ($('cardio-intervals')) $('cardio-intervals').oninput = e => { cardioData.intervals = e.target.value; updateSave(); };
+            $('cardio-notes').oninput = e => { cardioData.notes = e.target.value; };
+
+            document.querySelectorAll('.intensity-btn').forEach(btn => {
+                btn.onclick = () => {
+                    document.querySelectorAll('.intensity-btn').forEach(b => b.classList.remove('active', 'medium', 'high'));
+                    btn.classList.add('active');
+                    if (btn.dataset.int === 'medium') btn.classList.add('medium');
+                    if (btn.dataset.int === 'high') btn.classList.add('high');
+                    cardioData.intensity = btn.dataset.int;
+                };
+            });
+
+            updateSave();
+        }
 
         // Day selection
         document.querySelectorAll('.day-btn').forEach(btn => {
@@ -1003,6 +1126,14 @@
         };
 
         function updateSave() {
+            if (currentMode === 'cardio') {
+                // Cardio mode: need type selected and duration filled
+                saveBtn.disabled = !selectedCardioType || !cardioData?.duration;
+                saveBtn.textContent = 'Cardio Opslaan';
+                return;
+            }
+            // Lifting mode
+            saveBtn.textContent = 'Training Opslaan';
             if (!current) { saveBtn.disabled = true; return; }
             const hasData = current.exercises.some(ex => {
                 if (ex.skipped) return true;
@@ -1014,9 +1145,41 @@
 
         // Save
         saveBtn.onclick = () => {
-            if (!current) return;
             if (!isValidDate(dateInput.value)) { showToast('Ongeldige datum'); return; }
             if (!isValidTime(timeInput.value)) { showToast('Ongeldige tijd'); return; }
+
+            if (currentMode === 'cardio') {
+                // Save cardio session
+                if (!selectedCardioType || !cardioData?.duration) return;
+                const type = CARDIO_TYPES[selectedCardioType];
+                const session = {
+                    id: Date.now(),
+                    date: toISODate(dateInput.value),
+                    startTime: toISOTimestamp(dateInput.value, timeInput.value),
+                    isCardio: true,
+                    cardioType: selectedCardioType,
+                    cardioName: type.name,
+                    cardioIcon: type.icon,
+                    duration: +cardioData.duration || 0,
+                    distance: cardioData.distance ? +cardioData.distance : null,
+                    distanceUnit: type.unit || null,
+                    intensity: cardioData.intensity,
+                    intervals: cardioData.intervals || null,
+                    notes: cardioData.notes || ''
+                };
+                data.unshift(session);
+                save();
+                showToast('Cardio opgeslagen!');
+                // Reset
+                document.querySelectorAll('.cardio-btn').forEach(b => b.classList.remove('active'));
+                selectedCardioType = null; cardioData = null;
+                $('cardio-form-container').innerHTML = '';
+                saveBtn.disabled = true;
+                return;
+            }
+
+            // Save lifting session
+            if (!current) return;
             const training = {
                 id: Date.now(),
                 date: toISODate(dateInput.value),
@@ -1052,14 +1215,25 @@
             const el = $('history');
             if (!data.length) { el.innerHTML = '<div class="empty">Nog geen trainingen</div>'; return; }
             el.innerHTML = data.map((t, i) => {
-                const main = t.exercises.find(e => ['Back Squat','Bench Press','Conventional Deadlift','Push Press'].includes(e.name));
+                const healthBadge = t.health ? ' <span style="color:var(--accent)">❤️</span>' : '';
+
+                // Cardio session
+                if (t.isCardio) {
+                    let summary = `${t.duration} min`;
+                    if (t.distance) summary += ` · ${t.distance} ${t.distanceUnit}`;
+                    if (t.intervals) summary += ` · ${t.intervals}`;
+                    const intensityColor = t.intensity === 'high' ? 'var(--danger)' : t.intensity === 'medium' ? 'var(--accent)' : 'var(--success)';
+                    return `<div class="hist-card" data-idx="${i}"><div class="hist-top"><span class="hist-date">${fmtDate(t.date)}${healthBadge}</span><span class="hist-day" style="background:rgba(245,158,11,0.2);color:var(--accent);">Cardio</span></div><div class="hist-lift">${t.cardioIcon} ${t.cardioName}</div><div class="hist-summary">${summary} · <span style="color:${intensityColor}">${t.intensity}</span></div></div>`;
+                }
+
+                // Lifting session
+                const main = t.exercises?.find(e => ['Back Squat','Bench Press','Conventional Deadlift','Push Press'].includes(e.name));
                 let top = '-';
                 if (main?.sets && main.sets.length) {
                     const ws = main.sets.filter(s => !s.warmup);
                     const last = ws[ws.length-1];
                     if (last) top = last.w + 'kg' + (last.r ? ' x '+last.r : '');
                 }
-                const healthBadge = t.health ? ' <span style="color:var(--accent)">❤️</span>' : '';
                 return `<div class="hist-card" data-idx="${i}"><div class="hist-top"><span class="hist-date">${fmtDate(t.date)}${healthBadge}</span><span class="hist-day ${t.day}">Dag ${t.day}</span></div><div class="hist-lift">${t.lift}</div><div class="hist-summary">Topset: ${top}</div></div>`;
             }).join('');
             el.querySelectorAll('.hist-card').forEach(c => { c.onclick = () => openModal(+c.dataset.idx); });
@@ -1069,19 +1243,56 @@
         function openModal(idx) {
             editIdx = idx;
             editData = JSON.parse(JSON.stringify(data[idx]));
-            $('modal-title').textContent = editData.lift + ' — Dag ' + editData.day;
-            let dateInfo = fmtDate(editData.date) + ' | Week ' + editData.week;
-            if (editData.health) {
-                const h = editData.health;
-                const parts = [];
-                if (h.avgHr) parts.push(`❤️ ${Math.round(h.avgHr)} bpm`);
-                if (h.totalCal) parts.push(`🔥 ${Math.round(h.totalCal)} kcal`);
-                if (h.duration) parts.push(`⏱️ ${Math.round(h.duration)} min`);
-                if (parts.length) dateInfo += '<br><span style="color:var(--accent)">' + parts.join(' · ') + '</span>';
+
+            if (editData.isCardio) {
+                // Cardio modal
+                $('modal-title').textContent = editData.cardioIcon + ' ' + editData.cardioName;
+                let dateInfo = fmtDate(editData.date);
+                if (editData.health) {
+                    const h = editData.health;
+                    const parts = [];
+                    if (h.avgHr) parts.push(`❤️ ${Math.round(h.avgHr)} bpm`);
+                    if (h.totalCal) parts.push(`🔥 ${Math.round(h.totalCal)} kcal`);
+                    if (parts.length) dateInfo += '<br><span style="color:var(--accent)">' + parts.join(' · ') + '</span>';
+                }
+                $('modal-date').innerHTML = dateInfo;
+                renderCardioModal();
+            } else {
+                // Lifting modal
+                $('modal-title').textContent = editData.lift + ' — Dag ' + editData.day;
+                let dateInfo = fmtDate(editData.date) + ' | Week ' + editData.week;
+                if (editData.health) {
+                    const h = editData.health;
+                    const parts = [];
+                    if (h.avgHr) parts.push(`❤️ ${Math.round(h.avgHr)} bpm`);
+                    if (h.totalCal) parts.push(`🔥 ${Math.round(h.totalCal)} kcal`);
+                    if (h.duration) parts.push(`⏱️ ${Math.round(h.duration)} min`);
+                    if (parts.length) dateInfo += '<br><span style="color:var(--accent)">' + parts.join(' · ') + '</span>';
+                }
+                $('modal-date').innerHTML = dateInfo;
+                renderModal();
             }
-            $('modal-date').innerHTML = dateInfo;
-            renderModal();
             modal.classList.add('show');
+        }
+
+        function renderCardioModal() {
+            const intensityLabel = { low: 'Laag', medium: 'Medium', high: 'Hoog' };
+            const intensityColor = editData.intensity === 'high' ? 'var(--danger)' : editData.intensity === 'medium' ? 'var(--accent)' : 'var(--success)';
+            let html = '<div class="cardio-form">';
+            html += `<div class="cardio-row"><div class="cardio-field"><label>Duur</label><div style="font-size:1.25rem;font-weight:600;">${editData.duration} min</div></div>`;
+            if (editData.distance) {
+                html += `<div class="cardio-field"><label>Afstand</label><div style="font-size:1.25rem;font-weight:600;">${editData.distance} ${editData.distanceUnit}</div></div>`;
+            }
+            html += '</div>';
+            if (editData.intervals) {
+                html += `<div class="cardio-field" style="margin-bottom:0.75rem;"><label>Intervallen</label><div style="font-size:1rem;">${editData.intervals}</div></div>`;
+            }
+            html += `<div class="cardio-field" style="margin-bottom:0.75rem;"><label>Intensiteit</label><div style="color:${intensityColor};font-weight:600;">${intensityLabel[editData.intensity] || editData.intensity}</div></div>`;
+            if (editData.notes) {
+                html += `<div class="cardio-field"><label>Notities</label><div style="font-size:0.875rem;color:var(--text2);font-style:italic;">${editData.notes}</div></div>`;
+            }
+            html += '</div>';
+            modalBody.innerHTML = html;
         }
 
         function renderModal() {
@@ -1192,12 +1403,16 @@
                 d.setDate(monday.getDate() + i);
                 const dateStr = d.toISOString().split('T')[0];
                 const isToday = d.toDateString() === now.toDateString();
-                const training = data.find(t => t.date === dateStr);
-                const trained = !!training;
+                const sessions = data.filter(t => t.date === dateStr);
+                const trained = sessions.length > 0;
+                let statusText = '·';
+                if (trained) {
+                    statusText = sessions.map(s => s.isCardio ? s.cardioIcon : '✓' + s.day).join(' ');
+                }
 
                 html += `<div class="dash-week-day ${isToday ? 'today' : ''} ${trained ? 'trained' : ''}">
                     <div class="day-label">${days[i]}</div>
-                    <div class="day-status">${trained ? '✓' + training.day : '·'}</div>
+                    <div class="day-status">${statusText}</div>
                 </div>`;
             }
             el.innerHTML = html;
@@ -1205,12 +1420,12 @@
 
         function renderDashNext() {
             const el = $('dash-next');
-            // Bepaal welke dag als volgende aan de beurt is
+            // Bepaal welke dag als volgende aan de beurt is (alleen lifting, niet cardio)
             const dayOrder = ['A', 'B', 'C', 'D'];
-            const lastTraining = data[0];
+            const lastTraining = data.find(t => !t.isCardio);
             let nextDay = 'A';
 
-            if (lastTraining) {
+            if (lastTraining && lastTraining.day) {
                 const lastDayIdx = dayOrder.indexOf(lastTraining.day);
                 nextDay = dayOrder[(lastDayIdx + 1) % 4];
             }
