@@ -286,11 +286,15 @@
         .ex-tile-tag.unilateral { background: rgba(168,85,247,0.2); color: var(--purple); }
         .ex-tile-hint { font-size: 0.75rem; color: var(--text3); font-style: italic; }
     </style>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 </head>
 <body>
     <header class="header">
         <div class="header-content">
-            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v3.4</small></div>
+            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v3.8</small> <span id="sync-status" style="font-size:0.5rem;color:#666"></span></div>
             <nav class="nav">
                 <button data-screen="dashboard">Home</button>
                 <button class="active" data-screen="new">Nieuw</button>
@@ -477,6 +481,129 @@
         'use strict';
 
         // ===========================================
+        // FIREBASE CONFIGURATION
+        // ===========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyC9kFOUsF7VQ7moskmuFcuZ8qtPAesVXB0",
+            authDomain: "liftlog-2e359.firebaseapp.com",
+            databaseURL: "https://liftlog-2e359-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "liftlog-2e359",
+            storageBucket: "liftlog-2e359.firebasestorage.app",
+            messagingSenderId: "671831248974",
+            appId: "1:671831248974:web:fcc25f76c60741fd27b31f"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
+        let firebaseUid = null;
+        let isOnline = navigator.onLine;
+        let pendingSync = false;
+        let firebaseReady = false;
+
+        // Firebase sync functions
+        function updateSyncStatus(status) {
+            const el = document.getElementById('sync-status');
+            if (el) {
+                if (status === 'syncing') el.textContent = '⏳';
+                else if (status === 'synced') el.textContent = '☁️';
+                else if (status === 'offline') el.textContent = '📴';
+                else if (status === 'error') el.textContent = '⚠️';
+                else el.textContent = '';
+            }
+        }
+
+        function syncToFirebase() {
+            if (!firebaseUid || !isOnline) {
+                pendingSync = true;
+                updateSyncStatus('offline');
+                return;
+            }
+            updateSyncStatus('syncing');
+            const localData = JSON.parse(localStorage.getItem('liftlog3')) || [];
+            const healthData = JSON.parse(localStorage.getItem('liftlog_health_imports')) || [];
+
+            db.ref('users/' + firebaseUid).set({
+                trainings: localData,
+                healthImports: healthData,
+                lastUpdated: Date.now()
+            }).then(() => {
+                console.log('Synced to Firebase');
+                pendingSync = false;
+                updateSyncStatus('synced');
+            }).catch(err => {
+                console.error('Firebase sync error:', err);
+                pendingSync = true;
+                updateSyncStatus('error');
+            });
+        }
+
+        function loadFromFirebase() {
+            if (!firebaseUid) return Promise.resolve(null);
+
+            return db.ref('users/' + firebaseUid).once('value').then(snapshot => {
+                const fbData = snapshot.val();
+                if (fbData && fbData.trainings) {
+                    // Merge: Firebase wins if newer, otherwise keep local
+                    const localData = JSON.parse(localStorage.getItem('liftlog3')) || [];
+                    const localTimestamp = parseInt(localStorage.getItem('liftlog3_timestamp')) || 0;
+
+                    if (fbData.lastUpdated > localTimestamp || localData.length === 0) {
+                        localStorage.setItem('liftlog3', JSON.stringify(fbData.trainings));
+                        localStorage.setItem('liftlog3_timestamp', fbData.lastUpdated.toString());
+                        if (fbData.healthImports) {
+                            localStorage.setItem('liftlog_health_imports', JSON.stringify(fbData.healthImports));
+                        }
+                        return fbData.trainings;
+                    }
+                }
+                return null;
+            }).catch(err => {
+                console.error('Firebase load error:', err);
+                return null;
+            });
+        }
+
+        // Anonymous auth
+        auth.signInAnonymously().catch(err => {
+            console.error('Auth error:', err);
+        });
+
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                firebaseUid = user.uid;
+                console.log('Firebase auth ready:', firebaseUid);
+
+                // Load from Firebase and merge
+                loadFromFirebase().then(fbData => {
+                    firebaseReady = true;
+                    if (fbData) {
+                        data = fbData;
+                        healthImports = JSON.parse(localStorage.getItem('liftlog_health_imports')) || [];
+                        renderHistory();
+                        showToast('Data gesynchroniseerd');
+                    } else if (pendingSync) {
+                        syncToFirebase();
+                    }
+                });
+            }
+        });
+
+        // Online/offline detection
+        window.addEventListener('online', () => {
+            isOnline = true;
+            if (pendingSync && firebaseUid) {
+                syncToFirebase();
+                showToast('Online - data gesynchroniseerd');
+            }
+        });
+
+        window.addEventListener('offline', () => {
+            isOnline = false;
+        });
+
+        // ===========================================
         // EXERCISES DATABASE (met YouTube links)
         // ===========================================
         // EXERCISES wordt geladen uit /data/exercises.json
@@ -650,7 +777,11 @@
             }
             return null;
         };
-        const save = () => localStorage.setItem('liftlog3', JSON.stringify(data));
+        const save = () => {
+            localStorage.setItem('liftlog3', JSON.stringify(data));
+            localStorage.setItem('liftlog3_timestamp', Date.now().toString());
+            syncToFirebase();
+        };
 
         // ===========================================
         // SMART SELECTION LOGIC
@@ -2191,6 +2322,7 @@ END:VEVENT
                     trainings: matchedTrainings
                 });
                 localStorage.setItem('liftlog_health_imports', JSON.stringify(healthImports));
+                syncToFirebase();
                 renderHealthOverview();
             }
 
