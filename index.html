@@ -225,7 +225,7 @@
 <body>
     <header class="header">
         <div class="header-content">
-            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v2.8</small></div>
+            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v2.9</small></div>
             <nav class="nav">
                 <button data-screen="dashboard">Home</button>
                 <button class="active" data-screen="new">Nieuw</button>
@@ -246,8 +246,11 @@
                 <button class="day-btn" data-day="D"><span>D</span>Push Press</button>
             </div>
             <div class="date-row">
-                <label>Datum (DD-MM-YYYY)</label>
-                <input type="text" class="date-input" id="date-input" placeholder="29-12-2025" inputmode="numeric">
+                <label>Datum & Starttijd</label>
+                <div style="display:flex;gap:0.5rem;">
+                    <input type="text" class="date-input" id="date-input" placeholder="30-12-2025" inputmode="numeric" style="flex:1;">
+                    <input type="text" class="date-input" id="time-input" placeholder="09:00" inputmode="numeric" style="width:5rem;text-align:center;">
+                </div>
             </div>
             <div class="collapse-all-row" id="collapse-all-row" style="display:none;">
                 <button class="collapse-all-btn" id="collapse-all-btn">▼ Alles inklappen</button>
@@ -542,6 +545,7 @@
         const exEl = $('exercises');
         const saveBtn = $('save-btn');
         const dateInput = $('date-input');
+        const timeInput = $('time-input');
         const modal = $('modal');
         const modalBody = $('modal-body');
         const toast = $('toast');
@@ -552,10 +556,13 @@
         const toDisplayDate = d => { const p = d.split('-'); return p[2] + '-' + p[1] + '-' + p[0]; }; // YYYY-MM-DD -> DD-MM-YYYY
         const toISODate = d => { const p = d.split('-'); return p[2] + '-' + p[1] + '-' + p[0]; }; // DD-MM-YYYY -> YYYY-MM-DD
         const isValidDate = d => { const p = d.split('-'); if (p.length !== 3) return false; const [dd,mm,yyyy] = p.map(Number); if (!dd||!mm||!yyyy) return false; const dt = new Date(yyyy,mm-1,dd); return dt.getDate()===dd && dt.getMonth()===mm-1 && dt.getFullYear()===yyyy; };
+        const isValidTime = t => { const p = t.split(':'); if (p.length !== 2) return false; const [hh,mm] = p.map(Number); return !isNaN(hh) && !isNaN(mm) && hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59; };
+        const toISOTimestamp = (dateStr, timeStr) => { const isoDate = toISODate(dateStr); return `${isoDate}T${timeStr}:00`; };
 
         // Init
         const today = new Date();
         dateInput.value = today.getDate().toString().padStart(2,'0') + '-' + (today.getMonth()+1).toString().padStart(2,'0') + '-' + today.getFullYear();
+        timeInput.value = today.getHours().toString().padStart(2,'0') + ':' + today.getMinutes().toString().padStart(2,'0');
         const wk = Math.max(1, Math.ceil((new Date() - new Date('2025-12-15')) / 604800000));
         $('week-num').textContent = wk;
 
@@ -567,6 +574,15 @@
             if (v.length === 5 && v.split('-').length === 2) v += '-';
             dateInput.value = v;
             dateInput.classList.toggle('invalid', v.length >= 10 && !isValidDate(v));
+        };
+
+        // Time input validation
+        timeInput.oninput = () => {
+            let v = timeInput.value.replace(/[^\d:]/g, '');
+            // Auto-insert colon
+            if (v.length === 2 && !v.includes(':')) v += ':';
+            timeInput.value = v;
+            timeInput.classList.toggle('invalid', v.length >= 5 && !isValidTime(v));
         };
 
         // Helpers
@@ -989,9 +1005,11 @@
         saveBtn.onclick = () => {
             if (!current) return;
             if (!isValidDate(dateInput.value)) { showToast('Ongeldige datum'); return; }
+            if (!isValidTime(timeInput.value)) { showToast('Ongeldige tijd'); return; }
             const training = {
                 id: Date.now(),
                 date: toISODate(dateInput.value),
+                startTime: toISOTimestamp(dateInput.value, timeInput.value),
                 day: current.day,
                 lift: current.lift,
                 week: +$('week-num').textContent,
