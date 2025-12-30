@@ -225,7 +225,7 @@
 <body>
     <header class="header">
         <div class="header-content">
-            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v2.9</small></div>
+            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v3.0</small></div>
             <nav class="nav">
                 <button data-screen="dashboard">Home</button>
                 <button class="active" data-screen="new">Nieuw</button>
@@ -308,6 +308,17 @@
                         <button class="dash-export-btn" id="ics-export-month">Deze maand</button>
                         <button class="dash-export-btn" id="ics-export-week">Deze week</button>
                     </div>
+                </div>
+            </div>
+            <div class="dash-section">
+                <div class="dash-title">❤️ Apple Health Import</div>
+                <div class="dash-export">
+                    <p class="dash-export-desc">Importeer workout data (hartslag, calorieën) uit Apple Health CSV export</p>
+                    <div class="dash-export-btns">
+                        <button class="dash-export-btn" id="health-import-btn">📥 Importeer CSV</button>
+                    </div>
+                    <input type="file" class="file-input" id="health-file-input" accept=".csv">
+                    <div id="health-import-result" style="margin-top:0.75rem;font-size:0.75rem;"></div>
                 </div>
             </div>
         </section>
@@ -1043,12 +1054,13 @@
             el.innerHTML = data.map((t, i) => {
                 const main = t.exercises.find(e => ['Back Squat','Bench Press','Conventional Deadlift','Push Press'].includes(e.name));
                 let top = '-';
-                if (main?.sets && main.sets.length) { 
-                    const ws = main.sets.filter(s => !s.warmup); 
-                    const last = ws[ws.length-1]; 
-                    if (last) top = last.w + 'kg' + (last.r ? ' x '+last.r : ''); 
+                if (main?.sets && main.sets.length) {
+                    const ws = main.sets.filter(s => !s.warmup);
+                    const last = ws[ws.length-1];
+                    if (last) top = last.w + 'kg' + (last.r ? ' x '+last.r : '');
                 }
-                return `<div class="hist-card" data-idx="${i}"><div class="hist-top"><span class="hist-date">${fmtDate(t.date)}</span><span class="hist-day ${t.day}">Dag ${t.day}</span></div><div class="hist-lift">${t.lift}</div><div class="hist-summary">Topset: ${top}</div></div>`;
+                const healthBadge = t.health ? ' <span style="color:var(--accent)">❤️</span>' : '';
+                return `<div class="hist-card" data-idx="${i}"><div class="hist-top"><span class="hist-date">${fmtDate(t.date)}${healthBadge}</span><span class="hist-day ${t.day}">Dag ${t.day}</span></div><div class="hist-lift">${t.lift}</div><div class="hist-summary">Topset: ${top}</div></div>`;
             }).join('');
             el.querySelectorAll('.hist-card').forEach(c => { c.onclick = () => openModal(+c.dataset.idx); });
         }
@@ -1058,7 +1070,16 @@
             editIdx = idx;
             editData = JSON.parse(JSON.stringify(data[idx]));
             $('modal-title').textContent = editData.lift + ' — Dag ' + editData.day;
-            $('modal-date').textContent = fmtDate(editData.date) + ' | Week ' + editData.week;
+            let dateInfo = fmtDate(editData.date) + ' | Week ' + editData.week;
+            if (editData.health) {
+                const h = editData.health;
+                const parts = [];
+                if (h.avgHr) parts.push(`❤️ ${Math.round(h.avgHr)} bpm`);
+                if (h.totalCal) parts.push(`🔥 ${Math.round(h.totalCal)} kcal`);
+                if (h.duration) parts.push(`⏱️ ${Math.round(h.duration)} min`);
+                if (parts.length) dateInfo += '<br><span style="color:var(--accent)">' + parts.join(' · ') + '</span>';
+            }
+            $('modal-date').innerHTML = dateInfo;
             renderModal();
             modal.classList.add('show');
         }
@@ -1499,6 +1520,141 @@ END:VEVENT
         $('ics-export-all').onclick = () => exportICS('all');
         $('ics-export-month').onclick = () => exportICS('month');
         $('ics-export-week').onclick = () => exportICS('week');
+
+        // Apple Health CSV Import
+        $('health-import-btn').onclick = () => $('health-file-input').click();
+        $('health-file-input').onchange = e => {
+            const file = e.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+                try {
+                    const result = parseHealthCSV(ev.target.result);
+                    $('health-import-result').innerHTML = result.html;
+                    if (result.matched > 0) {
+                        save();
+                        showToast(`${result.matched} training(en) gekoppeld!`);
+                    }
+                } catch(err) {
+                    console.error(err);
+                    $('health-import-result').innerHTML = `<span style="color:var(--danger)">Fout: ${err.message}</span>`;
+                }
+            };
+            reader.readAsText(file);
+            e.target.value = '';
+        };
+
+        function parseHealthCSV(csvText) {
+            const lines = csvText.split('\n').filter(l => l.trim());
+            if (lines.length < 2) throw new Error('Leeg bestand');
+
+            // Parse header to find column indices
+            const header = lines[0].toLowerCase();
+            const cols = header.split(',').map(c => c.trim().replace(/"/g, ''));
+
+            // Find relevant columns (flexible matching)
+            const findCol = (...names) => cols.findIndex(c => names.some(n => c.includes(n)));
+            const dateCol = findCol('date', 'datum', 'start');
+            const typeCol = findCol('type', 'workout', 'activity');
+            const durationCol = findCol('duration', 'duur');
+            const activeCalCol = findCol('active energy', 'active cal', 'actieve');
+            const totalCalCol = findCol('total energy', 'total cal', 'totale');
+            const avgHrCol = findCol('avg heart', 'average heart', 'gem hartslag', 'avg hr');
+            const maxHrCol = findCol('max heart', 'maximum heart', 'max hartslag', 'max hr');
+
+            if (dateCol === -1) throw new Error('Geen datum kolom gevonden');
+
+            // Parse workouts
+            const workouts = [];
+            for (let i = 1; i < lines.length; i++) {
+                const values = parseCSVLine(lines[i]);
+                if (values.length <= dateCol) continue;
+
+                const dateStr = values[dateCol];
+                const workoutDate = parseHealthDate(dateStr);
+                if (!workoutDate) continue;
+
+                // Only strength training workouts
+                const type = typeCol >= 0 ? values[typeCol]?.toLowerCase() || '' : '';
+                if (type && !type.includes('strength') && !type.includes('training') && !type.includes('weight')) continue;
+
+                workouts.push({
+                    date: workoutDate,
+                    type: values[typeCol] || 'Workout',
+                    duration: durationCol >= 0 ? parseFloat(values[durationCol]) || 0 : 0,
+                    activeCal: activeCalCol >= 0 ? parseFloat(values[activeCalCol]) || 0 : 0,
+                    totalCal: totalCalCol >= 0 ? parseFloat(values[totalCalCol]) || 0 : 0,
+                    avgHr: avgHrCol >= 0 ? parseFloat(values[avgHrCol]) || 0 : 0,
+                    maxHr: maxHrCol >= 0 ? parseFloat(values[maxHrCol]) || 0 : 0
+                });
+            }
+
+            if (workouts.length === 0) throw new Error('Geen workouts gevonden in CSV');
+
+            // Match with trainings (±60 min buffer)
+            const BUFFER_MS = 60 * 60 * 1000; // 60 minutes
+            let matched = 0;
+            let html = '';
+
+            workouts.forEach(workout => {
+                const match = data.find(t => {
+                    if (!t.startTime) return false;
+                    const trainingTime = new Date(t.startTime).getTime();
+                    const workoutTime = workout.date.getTime();
+                    return Math.abs(trainingTime - workoutTime) <= BUFFER_MS;
+                });
+
+                if (match) {
+                    // Add health data to training
+                    match.health = {
+                        duration: workout.duration,
+                        activeCal: workout.activeCal,
+                        totalCal: workout.totalCal,
+                        avgHr: workout.avgHr,
+                        maxHr: workout.maxHr
+                    };
+                    matched++;
+                    html += `<div style="color:var(--success)">✓ ${fmtDate(match.date)} ${match.lift} gekoppeld</div>`;
+                } else {
+                    const d = workout.date;
+                    html += `<div style="color:var(--text3)">○ ${d.getDate()}-${d.getMonth()+1} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')} - geen match</div>`;
+                }
+            });
+
+            html = `<div style="margin-bottom:0.5rem"><strong>${matched}/${workouts.length}</strong> workouts gekoppeld</div>` + html;
+            return { matched, html };
+        }
+
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') inQuotes = !inQuotes;
+                else if (char === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
+                else current += char;
+            }
+            result.push(current.trim());
+            return result;
+        }
+
+        function parseHealthDate(dateStr) {
+            if (!dateStr) return null;
+            // Try various formats
+            // ISO: 2025-12-30T14:30:00
+            // US: 12/30/2025 2:30 PM
+            // EU: 30-12-2025 14:30
+            let d = new Date(dateStr);
+            if (!isNaN(d.getTime())) return d;
+
+            // Try DD-MM-YYYY HH:MM or DD/MM/YYYY HH:MM
+            const match = dateStr.match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})\s*(\d{1,2}):(\d{2})/);
+            if (match) {
+                const [, day, month, year, hour, min] = match;
+                return new Date(year, month - 1, day, hour, min);
+            }
+            return null;
+        }
 
         // Export
         function updateWeekSelect() {
