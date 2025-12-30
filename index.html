@@ -84,7 +84,40 @@
         .swap-menu button { display: block; width: 100%; padding: 0.5rem 0.75rem; border: none; background: transparent; color: var(--text); font-size: 0.75rem; text-align: left; cursor: pointer; border-radius: 0.25rem; }
         .swap-menu button:hover { background: var(--bg3); }
         .ex-head { position: relative; }
-        
+
+        /* Order buttons (reorder exercises) */
+        .order-btns { display: flex; flex-direction: column; gap: 0.125rem; margin-right: 0.5rem; }
+        .order-btn { padding: 0.125rem 0.375rem; font-size: 0.5rem; background: transparent; border: 1px solid var(--border); border-radius: 0.25rem; color: var(--text3); cursor: pointer; line-height: 1; }
+        .order-btn:hover { background: var(--bg3); border-color: var(--accent); color: var(--accent); }
+        .order-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        /* Drag and drop */
+        .ex-card[draggable="true"] { cursor: grab; }
+        .ex-card.dragging { opacity: 0.4; }
+        .ex-card.drag-over { border-top: 3px solid var(--accent); margin-top: -3px; }
+
+        /* Add exercise button */
+        .add-ex-btn { display: flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%; padding: 0.75rem; background: var(--bg2); border: 2px dashed var(--border); border-radius: 0.75rem; color: var(--text2); font-size: 0.875rem; cursor: pointer; margin-top: 0.5rem; }
+        .add-ex-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* Add exercise modal */
+        .add-ex-modal { position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg2); border-top: 1px solid var(--border); border-radius: 1rem 1rem 0 0; padding: 1rem; z-index: 100; max-height: 70vh; overflow-y: auto; box-shadow: 0 -4px 20px rgba(0,0,0,0.5); }
+        .add-ex-modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .add-ex-modal-title { font-weight: 600; font-size: 1rem; }
+        .add-ex-modal-close { background: none; border: none; color: var(--text2); font-size: 1.25rem; cursor: pointer; }
+        .add-ex-search { width: 100%; padding: 0.75rem; background: var(--bg3); border: 1px solid var(--border); border-radius: 0.5rem; color: var(--text); font-size: 0.875rem; margin-bottom: 0.75rem; }
+        .add-ex-results { max-height: 40vh; overflow-y: auto; }
+        .add-ex-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: var(--bg3); border-radius: 0.5rem; margin-bottom: 0.5rem; cursor: pointer; }
+        .add-ex-item:hover { background: var(--bg4, #3a3a3a); }
+        .add-ex-item-name { font-weight: 500; }
+        .add-ex-item-meta { font-size: 0.75rem; color: var(--text3); }
+        .add-ex-custom { border-top: 1px solid var(--border); padding-top: 0.75rem; margin-top: 0.5rem; }
+        .add-ex-custom-title { font-size: 0.75rem; color: var(--text3); margin-bottom: 0.5rem; }
+        .add-ex-custom-row { display: flex; gap: 0.5rem; }
+        .add-ex-custom-input { flex: 1; padding: 0.75rem; background: var(--bg3); border: 1px solid var(--border); border-radius: 0.5rem; color: var(--text); font-size: 0.875rem; }
+        .add-ex-type-select { padding: 0.75rem; background: var(--bg3); border: 1px solid var(--border); border-radius: 0.5rem; color: var(--text); font-size: 0.875rem; }
+        .add-ex-custom-btn { padding: 0.75rem 1rem; background: var(--accent); border: none; border-radius: 0.5rem; color: #000; font-weight: 600; cursor: pointer; }
+
         /* Equipment selector */
         .equip-row { display: flex; gap: 0.25rem; margin-bottom: 0.75rem; }
         .equip-btn { padding: 0.25rem 0.5rem; font-size: 0.625rem; background: var(--bg3); border: 1px solid var(--border); border-radius: 0.25rem; color: var(--text3); cursor: pointer; }
@@ -416,6 +449,28 @@
     </div>
 
     <div class="toast" id="toast"></div>
+
+    <!-- Add Exercise Modal -->
+    <div class="add-ex-modal" id="add-ex-modal" style="display:none;">
+        <div class="add-ex-modal-head">
+            <span class="add-ex-modal-title">Oefening toevoegen</span>
+            <button class="add-ex-modal-close" id="add-ex-modal-close">✕</button>
+        </div>
+        <input type="text" class="add-ex-search" id="add-ex-search" placeholder="🔍 Zoek oefening...">
+        <div class="add-ex-results" id="add-ex-results"></div>
+        <div class="add-ex-custom">
+            <div class="add-ex-custom-title">Of voer handmatig in:</div>
+            <div class="add-ex-custom-row">
+                <input type="text" class="add-ex-custom-input" id="add-ex-custom-name" placeholder="Naam (bijv. Touwtje springen)">
+                <select class="add-ex-type-select" id="add-ex-custom-type">
+                    <option value="weight">Gewicht</option>
+                    <option value="timed">Tijd</option>
+                    <option value="check">Check</option>
+                </select>
+                <button class="add-ex-custom-btn" id="add-ex-custom-add">+</button>
+            </div>
+        </div>
+    </div>
 
     <script>
     (function() {
@@ -846,6 +901,25 @@
             renderForm();
         }
 
+        // Move exercise up or down
+        function moveExercise(index, direction) {
+            const newIndex = index + direction;
+            if (newIndex < 0 || newIndex >= current.exercises.length) return;
+            const exercises = current.exercises;
+            [exercises[index], exercises[newIndex]] = [exercises[newIndex], exercises[index]];
+            renderForm();
+            updateSave();
+        }
+
+        // Reorder exercise (drag and drop)
+        function reorderExercise(fromIdx, toIdx) {
+            const exercises = current.exercises;
+            const [moved] = exercises.splice(fromIdx, 1);
+            exercises.splice(toIdx, 0, moved);
+            renderForm();
+            updateSave();
+        }
+
         // Render form
         function renderForm() {
             let html = '';
@@ -890,8 +964,12 @@
                 const exercise = EXERCISES[ex.id];
                 const ytBtn = exercise?.yt ? `<a href="https://youtube.com/watch?v=${exercise.yt}" target="_blank" class="yt-btn">▶</a>` : '';
 
-                html += `<div class="ex-card ${cardClass}" data-ei="${ei}">`;
-                html += `<div class="ex-head"><div><span class="ex-name">${ex.name}</span>${ytBtn}<span class="ex-btns"><button class="skip-btn ${ex.skipped?'active':''}" data-ei="${ei}">${ex.skipped?'⏭️ Overgeslagen':'Skip'}</button>${swapHtml}${collapseBtn}</span></div><span class="ex-rx">${ex.sets}x${ex.reps||'max'}</span></div>`;
+                const isFirst = ei === 0;
+                const isLast = ei === current.exercises.length - 1;
+                const orderBtns = `<span class="order-btns"><button class="order-btn up" data-ei="${ei}" ${isFirst?'disabled':''}>▲</button><button class="order-btn down" data-ei="${ei}" ${isLast?'disabled':''}>▼</button></span>`;
+
+                html += `<div class="ex-card ${cardClass}" data-ei="${ei}" draggable="true">`;
+                html += `<div class="ex-head"><div>${orderBtns}<span class="ex-name">${ex.name}</span>${ytBtn}<span class="ex-btns"><button class="skip-btn ${ex.skipped?'active':''}" data-ei="${ei}">${ex.skipped?'⏭️ Overgeslagen':'Skip'}</button>${swapHtml}${collapseBtn}</span></div><span class="ex-rx">${ex.sets}x${ex.reps||'max'}</span></div>`;
                 html += `<div class="ex-summary">${summaryText}</div>`;
 
                 // Body wrapper voor collapse
@@ -927,6 +1005,10 @@
                 html += `<textarea class="notes-input" data-ei="${ei}" placeholder="Notities...">${ex.notes||''}</textarea>`;
                 html += '</div></div>'; // close ex-body and ex-card
             });
+
+            // Add exercise button
+            html += `<button class="add-ex-btn" id="add-ex-trigger">➕ Oefening toevoegen</button>`;
+
             exEl.innerHTML = html;
             
             // Listeners
@@ -1007,6 +1089,54 @@
                 };
             });
 
+            // Order buttons (move up/down)
+            exEl.querySelectorAll('.order-btn').forEach(btn => {
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    const ei = +btn.dataset.ei;
+                    const direction = btn.classList.contains('up') ? -1 : 1;
+                    moveExercise(ei, direction);
+                };
+            });
+
+            // Drag and drop handlers
+            exEl.querySelectorAll('.ex-card').forEach(card => {
+                card.ondragstart = (e) => {
+                    card.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', card.dataset.ei);
+                };
+                card.ondragend = () => {
+                    card.classList.remove('dragging');
+                    exEl.querySelectorAll('.ex-card').forEach(c => c.classList.remove('drag-over'));
+                };
+                card.ondragover = (e) => {
+                    e.preventDefault();
+                    const dragging = exEl.querySelector('.dragging');
+                    if (dragging !== card) {
+                        card.classList.add('drag-over');
+                    }
+                };
+                card.ondragleave = () => {
+                    card.classList.remove('drag-over');
+                };
+                card.ondrop = (e) => {
+                    e.preventDefault();
+                    card.classList.remove('drag-over');
+                    const fromIdx = +e.dataTransfer.getData('text/plain');
+                    const toIdx = +card.dataset.ei;
+                    if (fromIdx !== toIdx) {
+                        reorderExercise(fromIdx, toIdx);
+                    }
+                };
+            });
+
+            // Add exercise button handler
+            const addExTrigger = $('add-ex-trigger');
+            if (addExTrigger) {
+                addExTrigger.onclick = () => openAddExerciseModal();
+            }
+
             // Update collapse-all knop
             updateCollapseAllBtn();
             updateSave();
@@ -1035,6 +1165,149 @@
                 if (!ex.skipped) ex.collapsed = globalCollapsed;
             });
             renderForm();
+        };
+
+        // Add Exercise Modal
+        const addExModal = $('add-ex-modal');
+        const addExSearch = $('add-ex-search');
+        const addExResults = $('add-ex-results');
+
+        function openAddExerciseModal() {
+            addExModal.style.display = 'block';
+            addExSearch.value = '';
+            addExSearch.focus();
+            renderAddExResults('');
+        }
+
+        function closeAddExerciseModal() {
+            addExModal.style.display = 'none';
+        }
+
+        function renderAddExResults(query) {
+            const q = query.toLowerCase().trim();
+            let exercises = Object.values(EXERCISES)
+                .filter(ex => !ex.isActivation)
+                .sort((a, b) => a.name.localeCompare(b.name));
+
+            if (q) {
+                exercises = exercises.filter(ex =>
+                    ex.name.toLowerCase().includes(q) ||
+                    ex.pattern?.toLowerCase().includes(q)
+                );
+            }
+
+            // Limit to 15 results
+            exercises = exercises.slice(0, 15);
+
+            const patternLabels = {
+                squat: 'Squat', hinge: 'Hinge', push_horizontal: 'Push H',
+                push_vertical: 'Push V', pull_horizontal: 'Pull H',
+                pull_vertical: 'Pull V', carry: 'Carry', isolation: 'Isolatie'
+            };
+
+            addExResults.innerHTML = exercises.map(ex => `
+                <div class="add-ex-item" data-id="${ex.id}">
+                    <div>
+                        <div class="add-ex-item-name">${ex.name}</div>
+                        <div class="add-ex-item-meta">${patternLabels[ex.pattern] || ex.pattern}</div>
+                    </div>
+                </div>
+            `).join('') || '<div style="color:var(--text3);padding:1rem;text-align:center;">Geen resultaten</div>';
+
+            // Add click handlers
+            addExResults.querySelectorAll('.add-ex-item').forEach(item => {
+                item.onclick = () => {
+                    addExerciseFromDatabase(item.dataset.id);
+                    closeAddExerciseModal();
+                };
+            });
+        }
+
+        function addExerciseFromDatabase(exerciseId) {
+            const exercise = EXERCISES[exerciseId];
+            if (!exercise || !current) return;
+
+            const type = exercise.isTimed ? 'timed' : (exercise.isCheck ? 'check' : 'weight');
+            const sets = 3;
+            const reps = type === 'timed' ? null : 10;
+
+            const newEx = {
+                id: exercise.id,
+                name: exercise.name,
+                pattern: exercise.pattern,
+                sets: sets,
+                reps: reps,
+                type: type,
+                hint: exercise.hint || '',
+                setsData: type === 'check' ? [] :
+                    Array(sets).fill().map(() => type === 'timed' ? {w:'',t:''} : {w:'',r:'',warmup:false}),
+                done: false,
+                skipped: false,
+                collapsed: globalCollapsed,
+                notes: '',
+                canSwap: true,
+                isCustom: false
+            };
+
+            // Equipment opties
+            if (exercise.equipment?.length > 1) {
+                newEx.hasEquip = true;
+                newEx.equipOptions = exercise.equipment;
+                newEx.equip = '';
+            }
+
+            current.exercises.push(newEx);
+            renderForm();
+            updateSave();
+            showToast(`${exercise.name} toegevoegd`);
+        }
+
+        function addCustomExercise(name, type) {
+            if (!name.trim() || !current) return;
+
+            const sets = type === 'check' ? 1 : 3;
+            const reps = type === 'weight' ? 10 : null;
+
+            const newEx = {
+                id: 'custom_' + Date.now(),
+                name: name.trim(),
+                pattern: 'custom',
+                sets: sets,
+                reps: reps,
+                type: type,
+                hint: '',
+                setsData: type === 'check' ? [] :
+                    Array(sets).fill().map(() => type === 'timed' ? {w:'',t:''} : {w:'',r:'',warmup:false}),
+                done: false,
+                skipped: false,
+                collapsed: globalCollapsed,
+                notes: '',
+                canSwap: false,
+                isCustom: true
+            };
+
+            current.exercises.push(newEx);
+            renderForm();
+            updateSave();
+            showToast(`${name.trim()} toegevoegd`);
+        }
+
+        // Modal event handlers
+        $('add-ex-modal-close').onclick = closeAddExerciseModal;
+        addExSearch.oninput = () => renderAddExResults(addExSearch.value);
+        $('add-ex-custom-add').onclick = () => {
+            const name = $('add-ex-custom-name').value;
+            const type = $('add-ex-custom-type').value;
+            if (name.trim()) {
+                addCustomExercise(name, type);
+                closeAddExerciseModal();
+                $('add-ex-custom-name').value = '';
+            }
+        };
+
+        // Close modal on backdrop click
+        addExModal.onclick = (e) => {
+            if (e.target === addExModal) closeAddExerciseModal();
         };
 
         // Add cardio to training
