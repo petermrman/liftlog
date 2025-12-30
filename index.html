@@ -253,7 +253,7 @@
 <body>
     <header class="header">
         <div class="header-content">
-            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v3.2</small></div>
+            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v3.3</small></div>
             <nav class="nav">
                 <button data-screen="dashboard">Home</button>
                 <button class="active" data-screen="new">Nieuw</button>
@@ -785,46 +785,19 @@
         function buildCardioForm() {
             if (!selectedCardioType) { $('cardio-form-container').innerHTML = ''; return; }
             const type = CARDIO_TYPES[selectedCardioType];
-            cardioData = { type: selectedCardioType, duration: '', distance: '', intensity: 'medium', intervals: '', notes: '' };
+            cardioData = { type: selectedCardioType, duration: '', notes: '' };
 
             let html = '<div class="cardio-form">';
-            html += '<div class="cardio-row">';
-            html += '<div class="cardio-field"><label>Duur (min)</label><input type="text" inputmode="numeric" id="cardio-duration" placeholder="30"></div>';
-            if (type.hasDistance) {
-                html += `<div class="cardio-field"><label>Afstand (${type.unit})</label><input type="text" inputmode="decimal" id="cardio-distance" placeholder="5"></div>`;
-            }
-            if (type.hasIntervals) {
-                html += '<div class="cardio-field"><label>Intervallen</label><input type="text" id="cardio-intervals" placeholder="8x30s"></div>';
-            }
-            html += '</div>';
-
-            html += '<div class="cardio-field" style="margin-bottom:0.75rem;"><label>Intensiteit</label>';
-            html += '<div class="intensity-btns">';
-            html += '<button class="intensity-btn" data-int="low">Laag</button>';
-            html += '<button class="intensity-btn active medium" data-int="medium">Medium</button>';
-            html += '<button class="intensity-btn" data-int="high">Hoog</button>';
-            html += '</div></div>';
-
-            html += '<div class="cardio-field"><label>Notities</label><textarea class="notes-input" id="cardio-notes" placeholder="Hoe voelde het?"></textarea></div>';
+            html += '<div class="cardio-field" style="margin-bottom:0.75rem;"><label>Duur (min)</label><input type="text" inputmode="numeric" id="cardio-duration" placeholder="30" style="font-size:1.25rem;"></div>';
+            html += '<div class="cardio-field"><label>Notities (optioneel)</label><textarea class="notes-input" id="cardio-notes" placeholder=""></textarea></div>';
+            html += '<div style="font-size:0.7rem;color:var(--text3);margin-top:0.5rem;">💡 Kcal en hartslag komen via Apple Health import</div>';
             html += '</div>';
 
             $('cardio-form-container').innerHTML = html;
 
             // Event listeners
             $('cardio-duration').oninput = e => { cardioData.duration = e.target.value; updateSave(); };
-            if ($('cardio-distance')) $('cardio-distance').oninput = e => { cardioData.distance = e.target.value; updateSave(); };
-            if ($('cardio-intervals')) $('cardio-intervals').oninput = e => { cardioData.intervals = e.target.value; updateSave(); };
             $('cardio-notes').oninput = e => { cardioData.notes = e.target.value; };
-
-            document.querySelectorAll('.intensity-btn').forEach(btn => {
-                btn.onclick = () => {
-                    document.querySelectorAll('.intensity-btn').forEach(b => b.classList.remove('active', 'medium', 'high'));
-                    btn.classList.add('active');
-                    if (btn.dataset.int === 'medium') btn.classList.add('medium');
-                    if (btn.dataset.int === 'high') btn.classList.add('high');
-                    cardioData.intensity = btn.dataset.int;
-                };
-            });
 
             updateSave();
         }
@@ -1143,10 +1116,7 @@
             trainingCardio.push({
                 id: Date.now(),
                 type: 'running',
-                duration: '',
-                distance: '',
-                intensity: 'medium',
-                notes: ''
+                duration: ''
             });
             renderTrainingCardio();
             updateSave();
@@ -1161,7 +1131,7 @@
                 return `
                 <div class="training-cardio-card">
                     <div class="training-cardio-head">
-                        <span class="training-cardio-title">🏃 Cardio ${ci + 1}</span>
+                        <span class="training-cardio-title">🏃 Cardio</span>
                         <button class="training-cardio-remove" data-ci="${ci}">✕ Verwijder</button>
                     </div>
                     <div class="cardio-types" style="margin-bottom:0.75rem;">
@@ -1171,24 +1141,9 @@
                             </button>
                         `).join('')}
                     </div>
-                    <div class="cardio-row">
-                        <div class="cardio-field">
-                            <label>Duur (min)</label>
-                            <input type="text" inputmode="numeric" class="tc-duration" data-ci="${ci}" value="${c.duration}" placeholder="30">
-                        </div>
-                        ${type.hasDistance ? `
-                        <div class="cardio-field">
-                            <label>Afstand (${type.unit})</label>
-                            <input type="text" inputmode="decimal" class="tc-distance" data-ci="${ci}" value="${c.distance}" placeholder="5">
-                        </div>` : ''}
-                    </div>
-                    <div class="cardio-field" style="margin-bottom:0.5rem;">
-                        <label>Intensiteit</label>
-                        <div class="intensity-btns">
-                            <button class="intensity-btn ${c.intensity === 'low' ? 'active' : ''}" data-ci="${ci}" data-int="low">Laag</button>
-                            <button class="intensity-btn ${c.intensity === 'medium' ? 'active medium' : ''}" data-ci="${ci}" data-int="medium">Medium</button>
-                            <button class="intensity-btn ${c.intensity === 'high' ? 'active high' : ''}" data-ci="${ci}" data-int="high">Hoog</button>
-                        </div>
+                    <div class="cardio-field">
+                        <label>Duur (min)</label>
+                        <input type="text" inputmode="numeric" class="tc-duration" data-ci="${ci}" value="${c.duration}" placeholder="30">
                     </div>
                 </div>`;
             }).join('');
@@ -1209,15 +1164,6 @@
             });
             el.querySelectorAll('.tc-duration').forEach(inp => {
                 inp.oninput = () => { trainingCardio[+inp.dataset.ci].duration = inp.value; updateSave(); };
-            });
-            el.querySelectorAll('.tc-distance').forEach(inp => {
-                inp.oninput = () => { trainingCardio[+inp.dataset.ci].distance = inp.value; };
-            });
-            el.querySelectorAll('.intensity-btn').forEach(btn => {
-                btn.onclick = () => {
-                    trainingCardio[+btn.dataset.ci].intensity = btn.dataset.int;
-                    renderTrainingCardio();
-                };
             });
         }
 
@@ -1257,10 +1203,6 @@
                     cardioName: type.name,
                     cardioIcon: type.icon,
                     duration: +cardioData.duration || 0,
-                    distance: cardioData.distance ? +cardioData.distance : null,
-                    distanceUnit: type.unit || null,
-                    intensity: cardioData.intensity,
-                    intervals: cardioData.intervals || null,
                     notes: cardioData.notes || ''
                 };
                 data.unshift(session);
@@ -1303,10 +1245,7 @@
                     type: c.type,
                     name: CARDIO_TYPES[c.type].name,
                     icon: CARDIO_TYPES[c.type].icon,
-                    duration: +c.duration,
-                    distance: c.distance ? +c.distance : null,
-                    distanceUnit: CARDIO_TYPES[c.type].unit || null,
-                    intensity: c.intensity
+                    duration: +c.duration
                 }));
             }
             data.unshift(training);
@@ -1329,10 +1268,8 @@
                 // Cardio session
                 if (t.isCardio) {
                     let summary = `${t.duration} min`;
-                    if (t.distance) summary += ` · ${t.distance} ${t.distanceUnit}`;
-                    if (t.intervals) summary += ` · ${t.intervals}`;
-                    const intensityColor = t.intensity === 'high' ? 'var(--danger)' : t.intensity === 'medium' ? 'var(--accent)' : 'var(--success)';
-                    return `<div class="hist-card" data-idx="${i}"><div class="hist-top"><span class="hist-date">${fmtDate(t.date)}${healthBadge}</span><span class="hist-day" style="background:rgba(245,158,11,0.2);color:var(--accent);">Cardio</span></div><div class="hist-lift">${t.cardioIcon} ${t.cardioName}</div><div class="hist-summary">${summary} · <span style="color:${intensityColor}">${t.intensity}</span></div></div>`;
+                    if (t.health?.totalCal) summary += ` · ${Math.round(t.health.totalCal)} kcal`;
+                    return `<div class="hist-card" data-idx="${i}"><div class="hist-top"><span class="hist-date">${fmtDate(t.date)}${healthBadge}</span><span class="hist-day" style="background:rgba(245,158,11,0.2);color:var(--accent);">Cardio</span></div><div class="hist-lift">${t.cardioIcon} ${t.cardioName}</div><div class="hist-summary">${summary}</div></div>`;
                 }
 
                 // Lifting session
@@ -1386,18 +1323,15 @@
         }
 
         function renderCardioModal() {
-            const intensityLabel = { low: 'Laag', medium: 'Medium', high: 'Hoog' };
-            const intensityColor = editData.intensity === 'high' ? 'var(--danger)' : editData.intensity === 'medium' ? 'var(--accent)' : 'var(--success)';
             let html = '<div class="cardio-form">';
-            html += `<div class="cardio-row"><div class="cardio-field"><label>Duur</label><div style="font-size:1.25rem;font-weight:600;">${editData.duration} min</div></div>`;
-            if (editData.distance) {
-                html += `<div class="cardio-field"><label>Afstand</label><div style="font-size:1.25rem;font-weight:600;">${editData.distance} ${editData.distanceUnit}</div></div>`;
+            html += `<div class="cardio-field" style="margin-bottom:0.75rem;"><label>Duur</label><div style="font-size:1.5rem;font-weight:600;">${editData.duration} min</div></div>`;
+            if (editData.health) {
+                const h = editData.health;
+                html += '<div class="cardio-row">';
+                if (h.totalCal) html += `<div class="cardio-field"><label>Calorieën</label><div style="font-size:1.25rem;font-weight:600;color:var(--accent);">${Math.round(h.totalCal)} kcal</div></div>`;
+                if (h.avgHr) html += `<div class="cardio-field"><label>Gem. hartslag</label><div style="font-size:1.25rem;font-weight:600;color:var(--danger);">${Math.round(h.avgHr)} bpm</div></div>`;
+                html += '</div>';
             }
-            html += '</div>';
-            if (editData.intervals) {
-                html += `<div class="cardio-field" style="margin-bottom:0.75rem;"><label>Intervallen</label><div style="font-size:1rem;">${editData.intervals}</div></div>`;
-            }
-            html += `<div class="cardio-field" style="margin-bottom:0.75rem;"><label>Intensiteit</label><div style="color:${intensityColor};font-weight:600;">${intensityLabel[editData.intensity] || editData.intensity}</div></div>`;
             if (editData.notes) {
                 html += `<div class="cardio-field"><label>Notities</label><div style="font-size:0.875rem;color:var(--text2);font-style:italic;">${editData.notes}</div></div>`;
             }
@@ -1434,11 +1368,8 @@
                 html += '<div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">';
                 html += '<div style="font-weight:600;color:var(--accent);margin-bottom:0.5rem;">🏃 Cardio</div>';
                 editData.cardio.forEach(c => {
-                    const intensityColor = c.intensity === 'high' ? 'var(--danger)' : c.intensity === 'medium' ? 'var(--accent)' : 'var(--success)';
                     html += `<div style="background:var(--bg3);padding:0.5rem;border-radius:0.375rem;margin-bottom:0.5rem;">`;
                     html += `<span style="font-weight:600;">${c.icon} ${c.name}</span> · ${c.duration} min`;
-                    if (c.distance) html += ` · ${c.distance} ${c.distanceUnit}`;
-                    html += ` · <span style="color:${intensityColor}">${c.intensity}</span>`;
                     html += '</div>';
                 });
                 html += '</div>';
