@@ -8,29 +8,48 @@ import {
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import admin from "firebase-admin";
 import { readFileSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Data file path (exported from LiftLog app)
-const DATA_FILE = process.env.LIFTLOG_DATA_FILE || join(__dirname, "..", "data", "liftlog-data.json");
+// Firebase Admin SDK initialization
+const CREDENTIALS_PATH = process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+  join(process.env.HOME, ".config", "liftlog", "firebase-key.json");
+const FIREBASE_UID = process.env.LIFTLOG_UID;
 
-// Load data from local JSON file
-function loadData() {
-  if (!existsSync(DATA_FILE)) {
-    console.error(`Data file not found: ${DATA_FILE}`);
-    console.error("Export your data from LiftLog first (Dashboard → Export)");
-    return { trainings: [], healthImports: [] };
-  }
-  try {
-    const content = readFileSync(DATA_FILE, "utf8");
-    return JSON.parse(content);
-  } catch (err) {
-    console.error(`Error reading data file: ${err.message}`);
-    return { trainings: [], healthImports: [] };
-  }
+if (!FIREBASE_UID) {
+  console.error("Error: LIFTLOG_UID environment variable is required");
+  console.error("Set it in your Claude Desktop config");
+  process.exit(1);
+}
+
+if (!existsSync(CREDENTIALS_PATH)) {
+  console.error(`Error: Firebase credentials not found at ${CREDENTIALS_PATH}`);
+  console.error("Download from Firebase Console → Project settings → Service accounts");
+  process.exit(1);
+}
+
+// Initialize Firebase Admin
+const serviceAccount = JSON.parse(readFileSync(CREDENTIALS_PATH, "utf8"));
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: "https://liftlog-2e359-default-rtdb.europe-west1.firebasedatabase.app"
+});
+
+const db = admin.database();
+
+// Firebase data helpers
+async function getTrainings() {
+  const snapshot = await db.ref(`users/${FIREBASE_UID}/trainings`).once("value");
+  return snapshot.val() || [];
+}
+
+async function getHealthImports() {
+  const snapshot = await db.ref(`users/${FIREBASE_UID}/healthImports`).once("value");
+  return snapshot.val() || [];
 }
 
 // Helper functions
@@ -192,22 +211,23 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
 // Read resources
 server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   const { uri } = request.params;
-  const data = loadData();
 
   if (uri === "liftlog://trainings") {
+    const trainings = await getTrainings();
     return {
       contents: [
         {
           uri,
           mimeType: "application/json",
-          text: JSON.stringify(data.trainings, null, 2),
+          text: JSON.stringify(trainings, null, 2),
         },
       ],
     };
   }
 
   if (uri === "liftlog://stats") {
-    const stats = calculateStats(data.trainings || []);
+    const trainings = await getTrainings();
+    const stats = calculateStats(trainings);
     return {
       contents: [
         {
@@ -225,12 +245,11 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 // Handle tool calls
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
-  const data = loadData();
 
   try {
     switch (name) {
       case "get_trainings": {
-        let trainings = data.trainings || [];
+        let trainings = await getTrainings();
 
         // Filter op dag
         if (args?.day) {
@@ -295,7 +314,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "get_training_details": {
-        const trainings = data.trainings || [];
+        const trainings = await getTrainings();
 
         const training = trainings.find((t) => {
           const dateMatch = t.date === args.date;
@@ -352,7 +371,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "get_progress": {
-        const trainings = data.trainings || [];
+        const trainings = await getTrainings();
         const exercise = args.exercise;
         const limit = args.limit || 10;
 
@@ -392,10 +411,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "get_stats": {
-        const trainings = data.trainings || [];
+        const trainings = await getTrainings();
 
         if (trainings.length === 0) {
-          return { content: [{ type: "text", text: "Geen trainingen gevonden. Exporteer eerst je data vanuit LiftLog." }] };
+          return { content: [{ type: "text", text: "Geen trainingen gevonden." }] };
         }
 
         // Bereken stats
@@ -443,7 +462,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "get_personal_records": {
-        const trainings = data.trainings || [];
+        const trainings = await getTrainings();
 
         const mainLifts = ["Back Squat", "Bench Press", "Conventional Deadlift", "Push Press"];
         const prs = {};
@@ -549,8 +568,8 @@ function calculateStats(trainings) {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("LiftLog MCP server running...");
-  console.error(`Data file: ${DATA_FILE}`);
+  console.error("LiftLog MCP server running with Firebase Admin SDK");
+  console.error(`Using UID: ${FIREBASE_UID}`);
 }
 
 main().catch(console.error);
