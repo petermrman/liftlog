@@ -624,18 +624,6 @@
                 firebaseUid = user.uid;
                 console.log('Firebase auth ready:', firebaseUid);
 
-                // Toon UID in header (klikbaar om te kopiëren)
-                const uidDisplay = document.createElement('span');
-                uidDisplay.id = 'uid-display';
-                uidDisplay.style.cssText = 'font-size:0.5rem;color:#666;cursor:pointer;margin-left:0.5rem;padding:0.125rem 0.25rem;background:#1e1e1e;border-radius:0.25rem;';
-                uidDisplay.textContent = '🔑 ' + firebaseUid.slice(0, 8) + '...';
-                uidDisplay.title = 'Klik om volledige UID te kopiëren';
-                uidDisplay.onclick = () => {
-                    navigator.clipboard.writeText(firebaseUid).then(() => {
-                        showToast('UID gekopieerd: ' + firebaseUid);
-                    });
-                };
-                document.querySelector('.logo').appendChild(uidDisplay);
 
                 // Load from Firebase and merge
                 loadFromFirebase().then(fbData => {
@@ -2707,12 +2695,16 @@ END:VEVENT
             e.target.value = '';
         };
 
-        // Reset optie (double-tap logo)
+        // Logo taps: 3x = kopieer UID, 5x = reset
         let logoTaps = 0;
         document.querySelector('.logo').onclick = () => {
             logoTaps++;
-            setTimeout(() => logoTaps = 0, 500);
-            if (logoTaps >= 3) {
+            setTimeout(() => logoTaps = 0, 600);
+            if (logoTaps === 3 && firebaseUid) {
+                navigator.clipboard.writeText(firebaseUid).then(() => {
+                    showToast('UID gekopieerd: ' + firebaseUid);
+                });
+            } else if (logoTaps >= 5) {
                 if (confirm('LocalStorage resetten? Dit verwijdert alle trainingsdata!')) {
                     localStorage.removeItem('liftlog3');
                     location.reload();
