@@ -285,6 +285,33 @@
         .ex-tile-tag.muscle { background: rgba(34,197,94,0.2); color: var(--success); }
         .ex-tile-tag.unilateral { background: rgba(168,85,247,0.2); color: var(--purple); }
         .ex-tile-hint { font-size: 0.75rem; color: var(--text3); font-style: italic; }
+
+        /* Health Match Modal */
+        .health-match-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 250; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+        .health-match-modal { background: var(--bg2); border: 1px solid var(--border); border-radius: 1rem; padding: 1.5rem; max-width: 400px; width: 100%; }
+        .health-match-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+        .health-match-icon { font-size: 2rem; }
+        .health-match-title { font-weight: 600; font-size: 1rem; }
+        .health-match-subtitle { font-size: 0.75rem; color: var(--text2); }
+        .health-match-stats { background: var(--bg3); border-radius: 0.75rem; padding: 1rem; margin-bottom: 1rem; }
+        .health-match-stat { display: flex; justify-content: space-between; padding: 0.375rem 0; border-bottom: 1px solid var(--border); }
+        .health-match-stat:last-child { border-bottom: none; }
+        .health-match-stat-label { font-size: 0.75rem; color: var(--text2); }
+        .health-match-stat-value { font-size: 0.875rem; font-weight: 600; }
+        .health-match-training { background: rgba(245,158,11,0.1); border: 1px solid var(--accent); border-radius: 0.75rem; padding: 1rem; margin-bottom: 1rem; }
+        .health-match-training-label { font-size: 0.625rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+        .health-match-training-name { font-weight: 600; font-size: 1rem; }
+        .health-match-training-date { font-size: 0.75rem; color: var(--text2); }
+        .health-match-btns { display: flex; gap: 0.5rem; }
+        .health-match-btn { flex: 1; padding: 0.875rem; border: none; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+        .health-match-btn.confirm { background: var(--success); color: #000; }
+        .health-match-btn.skip { background: var(--bg3); color: var(--text2); }
+        .health-match-btn.other { background: var(--blue); color: #fff; }
+        .health-match-progress { font-size: 0.625rem; color: var(--text3); text-align: center; margin-bottom: 0.75rem; }
+        .health-match-select { width: 100%; padding: 0.75rem; background: var(--bg3); border: 1px solid var(--border); border-radius: 0.5rem; color: var(--text); font-size: 0.875rem; margin-bottom: 0.75rem; }
+
+        /* Apple Health badge in history */
+        .health-badge { display: inline-flex; align-items: center; gap: 0.25rem; background: rgba(239,68,68,0.15); color: var(--danger); padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.625rem; font-weight: 600; }
     </style>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -294,7 +321,7 @@
 <body>
     <header class="header">
         <div class="header-content">
-            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v3.8</small> <span id="sync-status" style="font-size:0.5rem;color:#666"></span></div>
+            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v3.9</small> <span id="sync-status" style="font-size:0.5rem;color:#666"></span></div>
             <nav class="nav">
                 <button data-screen="dashboard">Home</button>
                 <button class="active" data-screen="new">Nieuw</button>
@@ -454,6 +481,28 @@
 
     <div class="toast" id="toast"></div>
 
+    <!-- Health Match Modal -->
+    <div class="health-match-overlay" id="health-match-overlay" style="display:none;">
+        <div class="health-match-modal">
+            <div class="health-match-progress" id="health-match-progress"></div>
+            <div class="health-match-header">
+                <div class="health-match-icon">⌚</div>
+                <div>
+                    <div class="health-match-title">Apple Watch workout gevonden</div>
+                    <div class="health-match-subtitle" id="health-match-time"></div>
+                </div>
+            </div>
+            <div class="health-match-stats" id="health-match-stats"></div>
+            <div class="health-match-training" id="health-match-training"></div>
+            <select class="health-match-select" id="health-match-select" style="display:none;"></select>
+            <div class="health-match-btns">
+                <button class="health-match-btn skip" id="health-match-skip">Overslaan</button>
+                <button class="health-match-btn other" id="health-match-other">Andere...</button>
+                <button class="health-match-btn confirm" id="health-match-confirm">Koppelen</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Add Exercise Modal -->
     <div class="add-ex-modal" id="add-ex-modal" style="display:none;">
         <div class="add-ex-modal-head">
@@ -574,6 +623,19 @@
             if (user) {
                 firebaseUid = user.uid;
                 console.log('Firebase auth ready:', firebaseUid);
+
+                // Toon UID in header (klikbaar om te kopiëren)
+                const uidDisplay = document.createElement('span');
+                uidDisplay.id = 'uid-display';
+                uidDisplay.style.cssText = 'font-size:0.5rem;color:#666;cursor:pointer;margin-left:0.5rem;padding:0.125rem 0.25rem;background:#1e1e1e;border-radius:0.25rem;';
+                uidDisplay.textContent = '🔑 ' + firebaseUid.slice(0, 8) + '...';
+                uidDisplay.title = 'Klik om volledige UID te kopiëren';
+                uidDisplay.onclick = () => {
+                    navigator.clipboard.writeText(firebaseUid).then(() => {
+                        showToast('UID gekopieerd: ' + firebaseUid);
+                    });
+                };
+                document.querySelector('.logo').appendChild(uidDisplay);
 
                 // Load from Firebase and merge
                 loadFromFirebase().then(fbData => {
@@ -1620,12 +1682,15 @@
             const el = $('history');
             if (!data.length) { el.innerHTML = '<div class="empty">Nog geen trainingen</div>'; return; }
             el.innerHTML = data.map((t, i) => {
-                const healthBadge = t.health ? ' <span style="color:var(--accent)">❤️</span>' : '';
+                // Support both old 'health' and new 'appleHealth'
+                const h = t.appleHealth || t.health;
+                const healthBadge = h ? ' <span class="health-badge">❤️</span>' : '';
 
                 // Cardio session
                 if (t.isCardio) {
                     let summary = `${t.duration} min`;
-                    if (t.health?.totalCal) summary += ` · ${Math.round(t.health.totalCal)} kcal`;
+                    const kcal = h?.activeEnergy || h?.totalCal;
+                    if (kcal) summary += ` · ${Math.round(kcal)} kcal`;
                     return `<div class="hist-card" data-idx="${i}"><div class="hist-top"><span class="hist-date">${fmtDate(t.date)}${healthBadge}</span><span class="hist-day" style="background:rgba(245,158,11,0.2);color:var(--accent);">Cardio</span></div><div class="hist-lift">${t.cardioIcon} ${t.cardioName}</div><div class="hist-summary">${summary}</div></div>`;
                 }
 
@@ -1648,15 +1713,19 @@
             editIdx = idx;
             editData = JSON.parse(JSON.stringify(data[idx]));
 
+            // Support both old 'health' and new 'appleHealth'
+            const h = editData.appleHealth || editData.health;
+
             if (editData.isCardio) {
                 // Cardio modal
                 $('modal-title').textContent = editData.cardioIcon + ' ' + editData.cardioName;
                 let dateInfo = fmtDate(editData.date);
-                if (editData.health) {
-                    const h = editData.health;
+                if (h) {
                     const parts = [];
-                    if (h.avgHr) parts.push(`❤️ ${Math.round(h.avgHr)} bpm`);
-                    if (h.totalCal) parts.push(`🔥 ${Math.round(h.totalCal)} kcal`);
+                    const avgHr = h.avgHeartRate || h.avgHr;
+                    const kcal = h.activeEnergy || h.totalCal;
+                    if (avgHr) parts.push(`❤️ ${Math.round(avgHr)} bpm`);
+                    if (kcal) parts.push(`🔥 ${Math.round(kcal)} kcal`);
                     if (parts.length) dateInfo += '<br><span style="color:var(--accent)">' + parts.join(' · ') + '</span>';
                 }
                 $('modal-date').innerHTML = dateInfo;
@@ -1665,13 +1734,17 @@
                 // Lifting modal
                 $('modal-title').textContent = editData.lift + ' — Dag ' + editData.day;
                 let dateInfo = fmtDate(editData.date) + ' | Week ' + editData.week;
-                if (editData.health) {
-                    const h = editData.health;
-                    const parts = [];
-                    if (h.avgHr) parts.push(`❤️ ${Math.round(h.avgHr)} bpm`);
-                    if (h.totalCal) parts.push(`🔥 ${Math.round(h.totalCal)} kcal`);
-                    if (h.duration) parts.push(`⏱️ ${Math.round(h.duration)} min`);
-                    if (parts.length) dateInfo += '<br><span style="color:var(--accent)">' + parts.join(' · ') + '</span>';
+                if (h) {
+                    const avgHr = h.avgHeartRate || h.avgHr;
+                    const maxHr = h.maxHeartRate || h.maxHr;
+                    const kcal = h.activeEnergy || h.totalCal;
+                    const duration = h.duration;
+                    let parts = [];
+                    if (avgHr) parts.push(`❤️ Gem: ${Math.round(avgHr)} bpm`);
+                    if (maxHr) parts.push(`Max: ${Math.round(maxHr)} bpm`);
+                    if (duration) parts.push(`⏱️ ${duration}`);
+                    if (kcal) parts.push(`🔥 ${Math.round(kcal)} kcal`);
+                    if (parts.length) dateInfo += '<br><span style="color:var(--danger)">' + parts.join(' | ') + '</span>';
                 }
                 $('modal-date').innerHTML = dateInfo;
                 renderModal();
@@ -1680,13 +1753,19 @@
         }
 
         function renderCardioModal() {
+            // Support both old 'health' and new 'appleHealth'
+            const h = editData.appleHealth || editData.health;
+
             let html = '<div class="cardio-form">';
             html += `<div class="cardio-field" style="margin-bottom:0.75rem;"><label>Duur</label><div style="font-size:1.5rem;font-weight:600;">${editData.duration} min</div></div>`;
-            if (editData.health) {
-                const h = editData.health;
+            if (h) {
+                const kcal = h.activeEnergy || h.totalCal;
+                const avgHr = h.avgHeartRate || h.avgHr;
+                const maxHr = h.maxHeartRate || h.maxHr;
                 html += '<div class="cardio-row">';
-                if (h.totalCal) html += `<div class="cardio-field"><label>Calorieën</label><div style="font-size:1.25rem;font-weight:600;color:var(--accent);">${Math.round(h.totalCal)} kcal</div></div>`;
-                if (h.avgHr) html += `<div class="cardio-field"><label>Gem. hartslag</label><div style="font-size:1.25rem;font-weight:600;color:var(--danger);">${Math.round(h.avgHr)} bpm</div></div>`;
+                if (kcal) html += `<div class="cardio-field"><label>Calorieën</label><div style="font-size:1.25rem;font-weight:600;color:var(--accent);">${Math.round(kcal)} kcal</div></div>`;
+                if (avgHr) html += `<div class="cardio-field"><label>Gem. hartslag</label><div style="font-size:1.25rem;font-weight:600;color:var(--danger);">${Math.round(avgHr)} bpm</div></div>`;
+                if (maxHr) html += `<div class="cardio-field"><label>Max. hartslag</label><div style="font-size:1.25rem;font-weight:600;color:var(--danger);">${Math.round(maxHr)} bpm</div></div>`;
                 html += '</div>';
             }
             if (editData.notes) {
@@ -2197,24 +2276,29 @@ END:VEVENT
             const container = $('health-overview');
             if (!container) return;
 
-            // Find trainings with health data
-            const withHealth = data.filter(t => t.health && (t.health.avgHr || t.health.totalCal));
+            // Find trainings with health data (support both old 'health' and new 'appleHealth')
+            const withHealth = data.filter(t => {
+                const h = t.appleHealth || t.health;
+                return h && (h.avgHeartRate || h.avgHr || h.activeEnergy || h.totalCal);
+            });
 
             if (withHealth.length === 0) {
                 container.innerHTML = '';
                 return;
             }
 
-            let html = '<div style="border-top:1px solid var(--card-border);padding-top:0.75rem;margin-top:0.5rem;">';
+            let html = '<div style="border-top:1px solid var(--border);padding-top:0.75rem;margin-top:0.5rem;">';
             html += `<div style="font-weight:600;margin-bottom:0.5rem;">❤️ ${withHealth.length} training(en) met health data</div>`;
             html += '<div style="font-size:0.75rem;">';
 
             withHealth.slice(0, 10).forEach(t => {
-                const h = t.health;
+                const h = t.appleHealth || t.health;
                 let stats = [];
-                if (h.avgHr) stats.push(`❤️ ${Math.round(h.avgHr)} bpm`);
-                if (h.totalCal) stats.push(`🔥 ${Math.round(h.totalCal)} kcal`);
-                html += `<div style="display:flex;justify-content:space-between;padding:0.25rem 0;border-bottom:1px solid var(--card-border);">`;
+                const avgHr = h.avgHeartRate || h.avgHr;
+                const kcal = h.activeEnergy || h.totalCal;
+                if (avgHr) stats.push(`❤️ ${Math.round(avgHr)} bpm`);
+                if (kcal) stats.push(`🔥 ${Math.round(kcal)} kcal`);
+                html += `<div style="display:flex;justify-content:space-between;padding:0.25rem 0;border-bottom:1px solid var(--border);">`;
                 html += `<span>${fmtDate(t.date)} ${t.lift || t.day}</span>`;
                 html += `<span style="color:var(--text3);">${stats.join(' · ')}</span>`;
                 html += `</div>`;
@@ -2228,25 +2312,36 @@ END:VEVENT
             container.innerHTML = html;
         }
 
+        // ===========================================
+        // APPLE HEALTH IMPORT WITH FUZZY MATCHING UI
+        // ===========================================
+
+        let healthMatchQueue = [];
+        let healthMatchIndex = 0;
+        let healthMatchResults = { matched: 0, skipped: 0, total: 0 };
+
         function parseHealthCSV(csvText) {
             const lines = csvText.split('\n').filter(l => l.trim());
             if (lines.length < 2) throw new Error('Leeg bestand');
 
             // Parse header to find column indices
-            const header = lines[0].toLowerCase();
-            const cols = header.split(',').map(c => c.trim().replace(/"/g, ''));
+            const headerLine = lines[0];
+            const cols = parseCSVLine(headerLine).map(c => c.toLowerCase().trim());
 
-            // Find relevant columns (flexible matching)
+            // Find relevant columns (flexible matching for Auto Health Export)
             const findCol = (...names) => cols.findIndex(c => names.some(n => c.includes(n)));
-            const dateCol = findCol('date', 'datum', 'start');
-            const typeCol = findCol('type', 'workout', 'activity');
-            const durationCol = findCol('duration', 'duur');
-            const activeCalCol = findCol('active energy', 'active cal', 'actieve');
-            const totalCalCol = findCol('total energy', 'total cal', 'totale');
-            const avgHrCol = findCol('avg heart', 'average heart', 'gem hartslag', 'avg hr');
-            const maxHrCol = findCol('max heart', 'maximum heart', 'max hartslag', 'max hr');
 
-            if (dateCol === -1) throw new Error('Geen datum kolom gevonden');
+            const typeCol = findCol('workout type', 'type', 'activity');
+            const startCol = findCol('start');
+            const endCol = findCol('end');
+            const durationCol = findCol('duration', 'duur');
+            const avgHrCol = findCol('avg. heart rate', 'avg heart', 'average heart', 'gem hartslag');
+            const maxHrCol = findCol('max. heart rate', 'max heart', 'maximum heart', 'max hartslag');
+            const activeCalCol = findCol('active energy', 'active cal', 'actieve energie');
+
+            // Fallback: use 'start' or first date-like column
+            const dateCol = startCol >= 0 ? startCol : findCol('date', 'datum');
+            if (dateCol === -1) throw new Error('Geen datum/start kolom gevonden');
 
             // Parse workouts
             const workouts = [];
@@ -2254,80 +2349,270 @@ END:VEVENT
                 const values = parseCSVLine(lines[i]);
                 if (values.length <= dateCol) continue;
 
-                const dateStr = values[dateCol];
-                const workoutDate = parseHealthDate(dateStr);
-                if (!workoutDate) continue;
+                const startStr = values[dateCol];
+                const startDate = parseHealthDate(startStr);
+                if (!startDate) continue;
 
-                // Only strength training workouts
-                const type = typeCol >= 0 ? values[typeCol]?.toLowerCase() || '' : '';
-                if (type && !type.includes('strength') && !type.includes('training') && !type.includes('weight')) continue;
+                const type = typeCol >= 0 ? values[typeCol] || '' : '';
+
+                // Filter for strength training (case insensitive)
+                const typeLower = type.toLowerCase();
+                if (type && !typeLower.includes('strength') && !typeLower.includes('training') && !typeLower.includes('weight') && !typeLower.includes('functional')) {
+                    continue;
+                }
+
+                // Parse end time
+                let endDate = null;
+                if (endCol >= 0 && values[endCol]) {
+                    endDate = parseHealthDate(values[endCol]);
+                }
+
+                // Parse duration (can be "00:57:33" or minutes as number)
+                let durationStr = durationCol >= 0 ? values[durationCol] || '' : '';
 
                 workouts.push({
-                    date: workoutDate,
-                    type: values[typeCol] || 'Workout',
-                    duration: durationCol >= 0 ? parseFloat(values[durationCol]) || 0 : 0,
-                    activeCal: activeCalCol >= 0 ? parseFloat(values[activeCalCol]) || 0 : 0,
-                    totalCal: totalCalCol >= 0 ? parseFloat(values[totalCalCol]) || 0 : 0,
-                    avgHr: avgHrCol >= 0 ? parseFloat(values[avgHrCol]) || 0 : 0,
-                    maxHr: maxHrCol >= 0 ? parseFloat(values[maxHrCol]) || 0 : 0
+                    startTime: startDate,
+                    endTime: endDate,
+                    duration: durationStr,
+                    type: type || 'Strength Training',
+                    avgHeartRate: avgHrCol >= 0 ? parseFloat(values[avgHrCol]) || 0 : 0,
+                    maxHeartRate: maxHrCol >= 0 ? parseFloat(values[maxHrCol]) || 0 : 0,
+                    activeEnergy: activeCalCol >= 0 ? parseFloat(values[activeCalCol]) || 0 : 0
                 });
             }
 
-            if (workouts.length === 0) throw new Error('Geen workouts gevonden in CSV');
+            if (workouts.length === 0) throw new Error('Geen strength workouts gevonden in CSV');
 
-            // Match with trainings (±60 min buffer)
+            // Find potential matches for each workout
             const BUFFER_MS = 60 * 60 * 1000; // 60 minutes
-            let matched = 0;
-            let html = '';
 
-            workouts.forEach(workout => {
-                const match = data.find(t => {
-                    if (!t.startTime) return false;
-                    const trainingTime = new Date(t.startTime).getTime();
-                    const workoutTime = workout.date.getTime();
-                    return Math.abs(trainingTime - workoutTime) <= BUFFER_MS;
-                });
+            healthMatchQueue = workouts.map(workout => {
+                // Find best match
+                const matches = data
+                    .map((t, idx) => {
+                        if (!t.startTime || t.isCardio) return null;
+                        const trainingTime = new Date(t.startTime).getTime();
+                        const workoutTime = workout.startTime.getTime();
+                        const diff = Math.abs(trainingTime - workoutTime);
+                        if (diff <= BUFFER_MS) {
+                            return { training: t, index: idx, diff };
+                        }
+                        return null;
+                    })
+                    .filter(Boolean)
+                    .sort((a, b) => a.diff - b.diff);
 
-                if (match) {
-                    // Add health data to training
-                    match.health = {
-                        duration: workout.duration,
-                        activeCal: workout.activeCal,
-                        totalCal: workout.totalCal,
-                        avgHr: workout.avgHr,
-                        maxHr: workout.maxHr
-                    };
-                    matched++;
-                    html += `<div style="color:var(--success)">✓ ${fmtDate(match.date)} ${match.lift} gekoppeld</div>`;
-                } else {
-                    const d = workout.date;
-                    html += `<div style="color:var(--text3)">○ ${d.getDate()}-${d.getMonth()+1} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')} - geen match</div>`;
-                }
+                // Also find same-day trainings as alternatives
+                const sameDay = data
+                    .map((t, idx) => {
+                        if (!t.date || t.isCardio) return null;
+                        const workoutDateStr = `${workout.startTime.getFullYear()}-${String(workout.startTime.getMonth()+1).padStart(2,'0')}-${String(workout.startTime.getDate()).padStart(2,'0')}`;
+                        if (t.date === workoutDateStr) {
+                            return { training: t, index: idx };
+                        }
+                        return null;
+                    })
+                    .filter(Boolean);
+
+                return {
+                    workout,
+                    bestMatch: matches[0] || null,
+                    alternatives: sameDay
+                };
             });
 
-            html = `<div style="margin-bottom:0.5rem"><strong>${matched}/${workouts.length}</strong> workouts gekoppeld</div>` + html;
+            healthMatchIndex = 0;
+            healthMatchResults = { matched: 0, skipped: 0, total: workouts.length };
 
-            // Record import in history
-            if (matched > 0) {
-                const matchedTrainings = data.filter(t => t.health).map(t => ({
-                    date: t.date,
-                    lift: t.lift,
-                    avgHr: t.health?.avgHr,
-                    totalCal: t.health?.totalCal
-                }));
-                healthImports.push({
-                    importDate: new Date().toISOString(),
-                    matched: matched,
-                    total: workouts.length,
-                    trainings: matchedTrainings
-                });
-                localStorage.setItem('liftlog_health_imports', JSON.stringify(healthImports));
-                syncToFirebase();
-                renderHealthOverview();
+            // Start interactive matching
+            if (healthMatchQueue.length > 0) {
+                showHealthMatchModal();
             }
 
-            return { matched, html };
+            return { matched: 0, html: `<div>🔄 ${workouts.length} workout(s) gevonden, bezig met matchen...</div>` };
         }
+
+        function showHealthMatchModal() {
+            if (healthMatchIndex >= healthMatchQueue.length) {
+                // Done matching
+                finishHealthMatching();
+                return;
+            }
+
+            const item = healthMatchQueue[healthMatchIndex];
+            const workout = item.workout;
+            const overlay = $('health-match-overlay');
+
+            // Progress
+            $('health-match-progress').textContent = `Workout ${healthMatchIndex + 1} van ${healthMatchQueue.length}`;
+
+            // Time info
+            const startTime = workout.startTime;
+            const timeStr = `${startTime.getDate()}-${startTime.getMonth()+1}-${startTime.getFullYear()} ${String(startTime.getHours()).padStart(2,'0')}:${String(startTime.getMinutes()).padStart(2,'0')}`;
+            $('health-match-time').textContent = timeStr;
+
+            // Stats
+            let statsHtml = '';
+            if (workout.duration) {
+                statsHtml += `<div class="health-match-stat"><span class="health-match-stat-label">Duur</span><span class="health-match-stat-value">⏱️ ${workout.duration}</span></div>`;
+            }
+            if (workout.avgHeartRate) {
+                statsHtml += `<div class="health-match-stat"><span class="health-match-stat-label">Gem. hartslag</span><span class="health-match-stat-value">❤️ ${Math.round(workout.avgHeartRate)} bpm</span></div>`;
+            }
+            if (workout.maxHeartRate) {
+                statsHtml += `<div class="health-match-stat"><span class="health-match-stat-label">Max. hartslag</span><span class="health-match-stat-value">💓 ${Math.round(workout.maxHeartRate)} bpm</span></div>`;
+            }
+            if (workout.activeEnergy) {
+                statsHtml += `<div class="health-match-stat"><span class="health-match-stat-label">Actieve energie</span><span class="health-match-stat-value">🔥 ${Math.round(workout.activeEnergy)} kcal</span></div>`;
+            }
+            $('health-match-stats').innerHTML = statsHtml;
+
+            // Training match
+            const trainingDiv = $('health-match-training');
+            const selectEl = $('health-match-select');
+
+            if (item.bestMatch) {
+                const t = item.bestMatch.training;
+                trainingDiv.innerHTML = `
+                    <div class="health-match-training-label">Koppelen aan</div>
+                    <div class="health-match-training-name">${t.lift || 'Training'} — Dag ${t.day}</div>
+                    <div class="health-match-training-date">${fmtDate(t.date)} ${t.startTime ? new Date(t.startTime).toLocaleTimeString('nl-NL', {hour:'2-digit', minute:'2-digit'}) : ''}</div>
+                `;
+                trainingDiv.style.display = 'block';
+                selectEl.style.display = 'none';
+            } else if (item.alternatives.length > 0) {
+                trainingDiv.innerHTML = `
+                    <div class="health-match-training-label">Geen exacte match</div>
+                    <div class="health-match-training-name" style="color:var(--text2)">Kies een training van dezelfde dag</div>
+                `;
+                trainingDiv.style.display = 'block';
+
+                // Show select with alternatives
+                selectEl.innerHTML = '<option value="">-- Selecteer training --</option>' +
+                    item.alternatives.map(alt =>
+                        `<option value="${alt.index}">${alt.training.lift || 'Training'} — Dag ${alt.training.day} (${fmtDate(alt.training.date)})</option>`
+                    ).join('');
+                selectEl.style.display = 'block';
+            } else {
+                trainingDiv.innerHTML = `
+                    <div class="health-match-training-label" style="color:var(--danger)">Geen match gevonden</div>
+                    <div class="health-match-training-name" style="color:var(--text2)">Geen training op deze datum</div>
+                `;
+                trainingDiv.style.display = 'block';
+                selectEl.style.display = 'none';
+            }
+
+            overlay.style.display = 'flex';
+        }
+
+        function applyHealthMatch(trainingIndex) {
+            const item = healthMatchQueue[healthMatchIndex];
+            const workout = item.workout;
+            const training = data[trainingIndex];
+
+            if (training) {
+                // Save as appleHealth object
+                training.appleHealth = {
+                    startTime: workout.startTime.toISOString(),
+                    endTime: workout.endTime ? workout.endTime.toISOString() : null,
+                    duration: workout.duration,
+                    avgHeartRate: workout.avgHeartRate,
+                    maxHeartRate: workout.maxHeartRate,
+                    activeEnergy: workout.activeEnergy,
+                    matchedAt: new Date().toISOString()
+                };
+                healthMatchResults.matched++;
+            }
+        }
+
+        function finishHealthMatching() {
+            $('health-match-overlay').style.display = 'none';
+
+            const results = healthMatchResults;
+            let html = `<div style="margin-bottom:0.5rem"><strong>${results.matched}/${results.total}</strong> workout(s) gekoppeld</div>`;
+
+            if (results.matched > 0) {
+                html += `<div style="color:var(--success)">✓ ${results.matched} training(en) bijgewerkt met Apple Health data</div>`;
+
+                // Save and sync
+                save();
+                renderHealthOverview();
+                showToast(`${results.matched} training(en) gekoppeld!`);
+
+                // Record import
+                healthImports.push({
+                    importDate: new Date().toISOString(),
+                    matched: results.matched,
+                    total: results.total
+                });
+                localStorage.setItem('liftlog_health_imports', JSON.stringify(healthImports));
+            }
+
+            if (results.skipped > 0) {
+                html += `<div style="color:var(--text3)">○ ${results.skipped} overgeslagen</div>`;
+            }
+
+            $('health-import-result').innerHTML = html;
+        }
+
+        // Health match modal buttons
+        $('health-match-confirm').onclick = () => {
+            const item = healthMatchQueue[healthMatchIndex];
+            const selectEl = $('health-match-select');
+
+            if (item.bestMatch) {
+                applyHealthMatch(item.bestMatch.index);
+            } else if (selectEl.style.display !== 'none' && selectEl.value) {
+                applyHealthMatch(parseInt(selectEl.value));
+            }
+
+            healthMatchIndex++;
+            showHealthMatchModal();
+        };
+
+        $('health-match-skip').onclick = () => {
+            healthMatchResults.skipped++;
+            healthMatchIndex++;
+            showHealthMatchModal();
+        };
+
+        $('health-match-other').onclick = () => {
+            const item = healthMatchQueue[healthMatchIndex];
+            const selectEl = $('health-match-select');
+            const trainingDiv = $('health-match-training');
+
+            // Show all trainings from same week as options
+            const workoutDate = item.workout.startTime;
+            const weekStart = new Date(workoutDate);
+            weekStart.setDate(workoutDate.getDate() - workoutDate.getDay());
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 7);
+
+            const weekTrainings = data
+                .map((t, idx) => {
+                    if (t.isCardio) return null;
+                    const tDate = new Date(t.date);
+                    if (tDate >= weekStart && tDate <= weekEnd) {
+                        return { training: t, index: idx };
+                    }
+                    return null;
+                })
+                .filter(Boolean);
+
+            if (weekTrainings.length > 0) {
+                trainingDiv.innerHTML = `
+                    <div class="health-match-training-label">Selecteer training</div>
+                    <div class="health-match-training-name" style="color:var(--text2)">Trainingen van deze week</div>
+                `;
+                selectEl.innerHTML = '<option value="">-- Selecteer training --</option>' +
+                    weekTrainings.map(wt =>
+                        `<option value="${wt.index}">${wt.training.lift || 'Training'} — ${fmtDate(wt.training.date)}</option>`
+                    ).join('');
+                selectEl.style.display = 'block';
+            } else {
+                showToast('Geen trainingen in deze week');
+            }
+        };
 
         function parseCSVLine(line) {
             const result = [];
@@ -2347,6 +2632,7 @@ END:VEVENT
             if (!dateStr) return null;
             // Try various formats
             // ISO: 2025-12-30T14:30:00
+            // Auto Health Export: "2025-12-30 15:04"
             // US: 12/30/2025 2:30 PM
             // EU: 30-12-2025 14:30
             let d = new Date(dateStr);

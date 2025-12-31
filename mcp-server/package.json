@@ -1,0 +1,16 @@
+{
+  "name": "liftlog-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for LiftLog - access your training data via Claude Desktop",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "node-fetch": "^3.3.2"
+  },
+  "author": "Peter",
+  "license": "MIT"
+}
