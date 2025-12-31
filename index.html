@@ -376,6 +376,7 @@
                 <select class="week-select" id="week-select"><option value="all">Alle weken</option></select>
                 <button class="action-btn" id="export-btn">📤 Export</button>
                 <button class="action-btn" id="import-btn">📥 Import</button>
+                <button class="action-btn" id="mcp-export-btn" title="Export JSON voor MCP server">🤖 MCP</button>
             </div>
             <input type="file" class="file-input" id="file-input" accept=".csv">
         </section>
@@ -2660,6 +2661,22 @@ END:VEVENT
             a.download = `liftlog_${wk==='all'?'all':'week'+wk}_${new Date().toISOString().split('T')[0]}.csv`;
             a.click();
             showToast('Geëxporteerd!');
+        };
+
+        // MCP Export (JSON voor Claude Desktop)
+        $('mcp-export-btn').onclick = () => {
+            if (!data.length) { showToast('Geen data'); return; }
+            const exportData = {
+                trainings: data,
+                healthImports: healthImports,
+                exportedAt: new Date().toISOString()
+            };
+            const json = JSON.stringify(exportData, null, 2);
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+            a.download = 'liftlog-data.json';
+            a.click();
+            showToast('MCP data geëxporteerd! Sla op in LiftLog/data/ map');
         };
 
         // Import

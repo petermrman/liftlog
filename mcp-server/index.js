@@ -8,44 +8,29 @@ import {
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import { readFileSync, existsSync } from "fs";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 
-// Firebase configuration
-const FIREBASE_DATABASE_URL = "https://liftlog-2e359-default-rtdb.europe-west1.firebasedatabase.app";
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Get UID from environment variable
-const FIREBASE_UID = process.env.LIFTLOG_UID;
+// Data file path (exported from LiftLog app)
+const DATA_FILE = process.env.LIFTLOG_DATA_FILE || join(__dirname, "..", "data", "liftlog-data.json");
 
-if (!FIREBASE_UID) {
-  console.error("Error: LIFTLOG_UID environment variable is required");
-  console.error("Set it in your Claude Desktop config or run:");
-  console.error("  export LIFTLOG_UID='your-firebase-uid'");
-  console.error("");
-  console.error("To find your UID, open LiftLog in browser and run in console:");
-  console.error("  firebase.auth().currentUser.uid");
-  process.exit(1);
-}
-
-// Firebase REST API helper
-async function fetchFirebase(path = "") {
-  const url = `${FIREBASE_DATABASE_URL}/users/${FIREBASE_UID}${path}.json`;
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Firebase error: ${response.status} ${response.statusText}`);
+// Load data from local JSON file
+function loadData() {
+  if (!existsSync(DATA_FILE)) {
+    console.error(`Data file not found: ${DATA_FILE}`);
+    console.error("Export your data from LiftLog first (Dashboard → Export)");
+    return { trainings: [], healthImports: [] };
   }
-  return response.json();
-}
-
-async function writeFirebase(path, data) {
-  const url = `${FIREBASE_DATABASE_URL}/users/${FIREBASE_UID}${path}.json`;
-  const response = await fetch(url, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!response.ok) {
-    throw new Error(`Firebase error: ${response.status} ${response.statusText}`);
+  try {
+    const content = readFileSync(DATA_FILE, "utf8");
+    return JSON.parse(content);
+  } catch (err) {
+    console.error(`Error reading data file: ${err.message}`);
+    return { trainings: [], healthImports: [] };
   }
-  return response.json();
 }
 
 // Helper functions
@@ -207,23 +192,22 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
 // Read resources
 server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   const { uri } = request.params;
+  const data = loadData();
 
   if (uri === "liftlog://trainings") {
-    const data = await fetchFirebase("/trainings");
     return {
       contents: [
         {
           uri,
           mimeType: "application/json",
-          text: JSON.stringify(data, null, 2),
+          text: JSON.stringify(data.trainings, null, 2),
         },
       ],
     };
   }
 
   if (uri === "liftlog://stats") {
-    const trainings = await fetchFirebase("/trainings");
-    const stats = calculateStats(trainings || []);
+    const stats = calculateStats(data.trainings || []);
     return {
       contents: [
         {
@@ -241,12 +225,12 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 // Handle tool calls
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
+  const data = loadData();
 
   try {
     switch (name) {
       case "get_trainings": {
-        const data = await fetchFirebase("/trainings");
-        let trainings = data || [];
+        let trainings = data.trainings || [];
 
         // Filter op dag
         if (args?.day) {
@@ -311,8 +295,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "get_training_details": {
-        const data = await fetchFirebase("/trainings");
-        const trainings = data || [];
+        const trainings = data.trainings || [];
 
         const training = trainings.find((t) => {
           const dateMatch = t.date === args.date;
@@ -369,8 +352,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "get_progress": {
-        const data = await fetchFirebase("/trainings");
-        const trainings = data || [];
+        const trainings = data.trainings || [];
         const exercise = args.exercise;
         const limit = args.limit || 10;
 
@@ -410,11 +392,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "get_stats": {
-        const data = await fetchFirebase("/trainings");
-        const trainings = data || [];
+        const trainings = data.trainings || [];
 
         if (trainings.length === 0) {
-          return { content: [{ type: "text", text: "Geen trainingen gevonden." }] };
+          return { content: [{ type: "text", text: "Geen trainingen gevonden. Exporteer eerst je data vanuit LiftLog." }] };
         }
 
         // Bereken stats
@@ -462,8 +443,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "get_personal_records": {
-        const data = await fetchFirebase("/trainings");
-        const trainings = data || [];
+        const trainings = data.trainings || [];
 
         const mainLifts = ["Back Squat", "Bench Press", "Conventional Deadlift", "Push Press"];
         const prs = {};
@@ -500,13 +480,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "search_exercises": {
         // Load exercises from the JSON file
-        const fs = await import("fs");
-        const path = await import("path");
-        const exercisesPath = path.join(process.cwd(), "..", "data", "exercises.json");
+        const exercisesPath = join(__dirname, "..", "data", "exercises.json");
 
         let exercises = {};
         try {
-          const content = fs.readFileSync(exercisesPath, "utf8");
+          const content = readFileSync(exercisesPath, "utf8");
           exercises = JSON.parse(content);
         } catch {
           return {
@@ -572,6 +550,7 @@ async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("LiftLog MCP server running...");
+  console.error(`Data file: ${DATA_FILE}`);
 }
 
 main().catch(console.error);
