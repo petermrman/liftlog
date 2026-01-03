@@ -653,6 +653,10 @@
         function syncToGoogleSheets(training) {
             const payload = formatTrainingForSheets(training);
 
+            // DEBUG: Log wat naar Sheets wordt gestuurd
+            console.log('=== SHEETS PAYLOAD ===');
+            console.log('Sets being sent:', JSON.stringify(payload.sets, null, 2));
+
             if (!isOnline) {
                 // Queue for later
                 sheetsQueue.push(payload);
@@ -1781,6 +1785,11 @@
                     duration: +c.duration
                 }));
             }
+            // DEBUG: Log wat wordt opgeslagen
+            console.log('=== SAVING TRAINING ===');
+            console.log('setsData before save:', current.exercises.map(ex => ({name: ex.name, setsData: ex.setsData})));
+            console.log('training.exercises after transform:', training.exercises.map(ex => ({name: ex.name, sets: ex.sets})));
+
             data.unshift(training);
             save();
             syncToGoogleSheets(training);
@@ -1827,6 +1836,11 @@
         function openModal(idx) {
             editIdx = idx;
             editData = JSON.parse(JSON.stringify(data[idx]));
+
+            // DEBUG: Log wat wordt geladen
+            console.log('=== LOADING TRAINING IN MODAL ===');
+            console.log('Raw data[idx]:', data[idx]);
+            console.log('editData.exercises:', editData.exercises?.map(ex => ({name: ex.name, sets: ex.sets})));
 
             // Support both old 'health' and new 'appleHealth'
             const h = editData.appleHealth || editData.health;
