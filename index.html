@@ -317,6 +317,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <!-- Config (not in git) -->
+    <script src="config.js"></script>
 </head>
 <body>
     <header class="header">
@@ -588,8 +590,8 @@
             });
         }
 
-        // Google Sheets sync
-        const SHEETS_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbzUAlg2rkrsUD4yGtXBMrLajeva3g8dq_nKh64lnoCvJ9fh2V1l0W6BtTtv6Q4mFPuJ3A/exec';
+        // Google Sheets sync (URL from config.js)
+        const SHEETS_WEBHOOK_URL = (typeof LIFTLOG_CONFIG !== 'undefined' && LIFTLOG_CONFIG.SHEETS_WEBHOOK_URL) || null;
         let sheetsQueue = JSON.parse(localStorage.getItem('liftlog_sheets_queue')) || [];
 
         function updateSheetsStatus(status) {
@@ -651,6 +653,12 @@
         }
 
         function syncToGoogleSheets(training) {
+            // Skip if no webhook URL configured
+            if (!SHEETS_WEBHOOK_URL) {
+                console.log('Sheets sync skipped: no webhook URL configured');
+                return;
+            }
+
             const payload = formatTrainingForSheets(training);
 
             // DEBUG: Log wat naar Sheets wordt gestuurd
