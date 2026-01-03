@@ -1764,7 +1764,7 @@
                         id: ex.id,
                         name: ex.name,
                         type: ex.type,
-                        sets: ex.skipped ? [] : ex.setsData.filter(s => s.w || s.t).map(s => ex.type === 'timed' ? {w:s.w,t:s.t} : {w:s.w,r:s.r,warmup:s.warmup}),
+                        sets: ex.skipped ? [] : ex.setsData.filter(s => s.w || s.r || s.t).map(s => ex.type === 'timed' ? {w:s.w,t:s.t} : {w:s.w,r:s.r,warmup:s.warmup}),
                         skipped: ex.skipped,
                         notes: ex.notes
                     };
