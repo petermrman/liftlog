@@ -323,7 +323,7 @@
 <body>
     <header class="header">
         <div class="header-content">
-            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v4.1</small> <span id="sync-status" style="font-size:0.5rem;color:#666"></span><span id="sheets-status" style="font-size:0.5rem;color:#666;margin-left:2px"></span></div>
+            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v4.2</small> <span id="sync-status" style="font-size:0.5rem;color:#666"></span><span id="sheets-status" style="font-size:0.5rem;color:#666;margin-left:2px"></span></div>
             <nav class="nav">
                 <button data-screen="dashboard">Home</button>
                 <button class="active" data-screen="new">Nieuw</button>
@@ -1168,13 +1168,19 @@
                         ex.equip = prev?.equip || '';
                     }
 
-                    // Sets data - altijd leeg starten (clean slate)
+                    // Check of het een bodyweight oefening is (alleen bodyweight in equipment)
+                    const isBodyweightOnly = exercise.equipment &&
+                        exercise.equipment.length === 1 &&
+                        exercise.equipment[0] === 'bodyweight';
+                    ex.phW = isBodyweightOnly ? 'BW' : '';
+
+                    // Sets data - reps default uit slot template
                     if (type === 'check') {
                         ex.done = false;
                     } else if (type === 'timed') {
                         ex.setsData = Array(slot.sets).fill().map(() => ({w:'',t:''}));
                     } else {
-                        ex.setsData = Array(slot.sets).fill().map(() => ({w:'',r:'',warmup:false}));
+                        ex.setsData = Array(slot.sets).fill().map(() => ({w:'',r:slot.reps||'',warmup:false}));
                     }
                     console.log('buildForm:', ex.name, 'type:', type, 'setsData:', JSON.stringify(ex.setsData), 'done:', ex.done);
 
@@ -1322,7 +1328,7 @@
                         html += `<div class="check-row"><button class="check-btn ${ex.done?'checked':''}" data-ei="${ei}">${ex.done?'✓':''}</button><span>Tik als gedaan</span></div>`;
                     } else if (ex.type === 'timed') {
                         ex.setsData.forEach((s, si) => {
-                            html += `<div class="set-row"><span class="set-num">${si+1}:</span><input type="text" inputmode="decimal" class="set-input" data-ei="${ei}" data-si="${si}" data-f="w" placeholder="${ex.phW||'BW'}" value="${s.w||''}"><span class="set-unit">kg</span><input type="text" inputmode="numeric" class="set-input" data-ei="${ei}" data-si="${si}" data-f="t" placeholder="${ex.phT||''}" value="${s.t||''}"><span class="set-unit">sec</span></div>`;
+                            html += `<div class="set-row"><span class="set-num">${si+1}:</span><input type="text" inputmode="decimal" class="set-input" data-ei="${ei}" data-si="${si}" data-f="w" placeholder="${ex.phW||''}" value="${s.w||''}"><span class="set-unit">kg</span><input type="text" inputmode="numeric" class="set-input" data-ei="${ei}" data-si="${si}" data-f="t" placeholder="${ex.phT||''}" value="${s.t||''}"><span class="set-unit">sec</span></div>`;
                         });
                     } else {
                         ex.setsData.forEach((s, si) => {
