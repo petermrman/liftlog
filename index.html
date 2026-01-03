@@ -317,13 +317,11 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-    <!-- Config (not in git) -->
-    <script src="config.js"></script>
 </head>
 <body>
     <header class="header">
         <div class="header-content">
-            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v4.2</small> <span id="sync-status" style="font-size:0.5rem;color:#666"></span><span id="sheets-status" style="font-size:0.5rem;color:#666;margin-left:2px"></span></div>
+            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v4.3</small> <span id="sync-status" style="font-size:0.5rem;color:#666"></span><span id="sheets-status" style="font-size:0.5rem;color:#666;margin-left:2px"></span></div>
             <nav class="nav">
                 <button data-screen="dashboard">Home</button>
                 <button class="active" data-screen="new">Nieuw</button>
@@ -461,6 +459,23 @@
                 <div class="ex-count" id="ex-count"></div>
                 <div class="ex-grid" id="ex-grid"></div>
             </div>
+
+            <div class="settings-section" style="margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border);">
+                <h3 style="font-size:1rem;margin-bottom:1rem;color:var(--text2);">Google Sheets Sync</h3>
+                <div id="sheets-config-status" style="margin-bottom:1rem;padding:0.5rem;border-radius:0.375rem;font-size:0.875rem;"></div>
+                <div style="margin-bottom:0.75rem;">
+                    <label style="font-size:0.75rem;color:var(--text2);display:block;margin-bottom:0.25rem;">Webhook URL</label>
+                    <input type="text" id="sheets-url-input" placeholder="https://script.google.com/macros/s/.../exec" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:0.375rem;background:var(--bg2);color:var(--text);font-size:0.875rem;">
+                </div>
+                <div style="margin-bottom:1rem;">
+                    <label style="font-size:0.75rem;color:var(--text2);display:block;margin-bottom:0.25rem;">Sync Token (optioneel)</label>
+                    <input type="text" id="sheets-token-input" placeholder="Geheime token voor verificatie" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:0.375rem;background:var(--bg2);color:var(--text);font-size:0.875rem;">
+                </div>
+                <div style="display:flex;gap:0.5rem;">
+                    <button id="sheets-save-btn" style="flex:1;padding:0.5rem;background:var(--primary);color:white;border:none;border-radius:0.375rem;cursor:pointer;">Opslaan</button>
+                    <button id="sheets-test-btn" style="flex:1;padding:0.5rem;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:0.375rem;cursor:pointer;">Test Verbinding</button>
+                </div>
+            </div>
         </section>
     </main>
 
@@ -590,9 +605,15 @@
             });
         }
 
-        // Google Sheets sync (URL from config.js)
-        const SHEETS_WEBHOOK_URL = (typeof LIFTLOG_CONFIG !== 'undefined' && LIFTLOG_CONFIG.SHEETS_WEBHOOK_URL) || null;
+        // Google Sheets sync (URL + token from localStorage)
         let sheetsQueue = JSON.parse(localStorage.getItem('liftlog_sheets_queue')) || [];
+
+        function getSheetsConfig() {
+            return {
+                url: localStorage.getItem('sheets_webhook_url') || '',
+                token: localStorage.getItem('sheets_sync_token') || ''
+            };
+        }
 
         function updateSheetsStatus(status) {
             const el = document.getElementById('sheets-status');
@@ -601,20 +622,40 @@
                 else if (status === 'synced') el.textContent = '📊✓';
                 else if (status === 'queued') el.textContent = '📊📴';
                 else if (status === 'error') el.textContent = '📊⚠️';
+                else if (status === 'disabled') el.textContent = '';
                 else el.textContent = '';
-                // Clear success indicator after 3 seconds
                 if (status === 'synced') {
                     setTimeout(() => { if (el.textContent === '📊✓') el.textContent = ''; }, 3000);
                 }
             }
         }
 
+        function updateSheetsConfigStatus() {
+            const statusEl = document.getElementById('sheets-config-status');
+            const urlInput = document.getElementById('sheets-url-input');
+            const tokenInput = document.getElementById('sheets-token-input');
+            if (!statusEl) return;
+
+            const config = getSheetsConfig();
+            if (urlInput) urlInput.value = config.url;
+            if (tokenInput) tokenInput.value = config.token;
+
+            if (config.url) {
+                statusEl.textContent = '✅ Sheets sync geconfigureerd';
+                statusEl.style.background = 'rgba(34,197,94,0.15)';
+                statusEl.style.color = 'var(--success)';
+            } else {
+                statusEl.textContent = '❌ Niet geconfigureerd - vul URL in';
+                statusEl.style.background = 'rgba(239,68,68,0.15)';
+                statusEl.style.color = 'var(--danger)';
+            }
+        }
+
         function formatTrainingForSheets(training) {
-            // Convert internal format to Sheets webhook format
             const datum = training.date;
             const startTime = training.startTime ? new Date(training.startTime).toLocaleTimeString('nl-NL', {hour:'2-digit', minute:'2-digit'}) : '';
+            const config = getSheetsConfig();
 
-            // Build sets array
             const sets = [];
             if (training.exercises) {
                 training.exercises.forEach(ex => {
@@ -634,6 +675,7 @@
 
             return {
                 type: training.isCardio ? 'cardio' : 'training',
+                token: config.token || undefined,
                 id: training.id,
                 datum: datum,
                 training: training.day || (training.isCardio ? 'Cardio' : ''),
@@ -645,7 +687,6 @@
                 rpeWerkelijk: null,
                 notities: training.notes || '',
                 sets: sets,
-                // Cardio specific
                 cardioType: training.cardioType || null,
                 cardioName: training.cardioName || null,
                 duration: training.duration || null
@@ -653,20 +694,18 @@
         }
 
         function syncToGoogleSheets(training) {
-            // Skip if no webhook URL configured
-            if (!SHEETS_WEBHOOK_URL) {
+            const config = getSheetsConfig();
+            if (!config.url) {
                 console.log('Sheets sync skipped: no webhook URL configured');
+                updateSheetsStatus('disabled');
                 return;
             }
 
             const payload = formatTrainingForSheets(training);
-
-            // DEBUG: Log wat naar Sheets wordt gestuurd
             console.log('=== SHEETS PAYLOAD ===');
             console.log('Sets being sent:', JSON.stringify(payload.sets, null, 2));
 
             if (!isOnline) {
-                // Queue for later
                 sheetsQueue.push(payload);
                 localStorage.setItem('liftlog_sheets_queue', JSON.stringify(sheetsQueue));
                 updateSheetsStatus('queued');
@@ -676,9 +715,9 @@
 
             updateSheetsStatus('syncing');
 
-            fetch(SHEETS_WEBHOOK_URL, {
+            fetch(config.url, {
                 method: 'POST',
-                mode: 'no-cors', // Google Apps Script requires no-cors
+                mode: 'no-cors',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             }).then(() => {
@@ -686,7 +725,6 @@
                 updateSheetsStatus('synced');
             }).catch(err => {
                 console.error('Sheets sync error:', err);
-                // Queue for retry
                 sheetsQueue.push(payload);
                 localStorage.setItem('liftlog_sheets_queue', JSON.stringify(sheetsQueue));
                 updateSheetsStatus('error');
@@ -694,16 +732,16 @@
         }
 
         function processGoogleSheetsQueue() {
-            if (!isOnline || sheetsQueue.length === 0) return;
+            const config = getSheetsConfig();
+            if (!config.url || !isOnline || sheetsQueue.length === 0) return;
 
             updateSheetsStatus('syncing');
             const queue = [...sheetsQueue];
             sheetsQueue = [];
             localStorage.setItem('liftlog_sheets_queue', JSON.stringify(sheetsQueue));
 
-            // Send all queued items
             Promise.all(queue.map(payload =>
-                fetch(SHEETS_WEBHOOK_URL, {
+                fetch(config.url, {
                     method: 'POST',
                     mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
@@ -714,7 +752,6 @@
                 updateSheetsStatus('synced');
             }).catch(err => {
                 console.error('Sheets queue processing error:', err);
-                // Re-queue failed items
                 sheetsQueue = [...sheetsQueue, ...queue];
                 localStorage.setItem('liftlog_sheets_queue', JSON.stringify(sheetsQueue));
                 updateSheetsStatus('error');
@@ -2270,6 +2307,43 @@
             exerciseSearch = e.target.value;
             renderExercises();
         };
+
+        // Sheets Settings handlers
+        $('sheets-save-btn').onclick = () => {
+            const url = $('sheets-url-input').value.trim();
+            const token = $('sheets-token-input').value.trim();
+            localStorage.setItem('sheets_webhook_url', url);
+            localStorage.setItem('sheets_sync_token', token);
+            updateSheetsConfigStatus();
+            showToast('Sheets config opgeslagen!');
+        };
+
+        $('sheets-test-btn').onclick = () => {
+            const config = getSheetsConfig();
+            if (!config.url) {
+                showToast('Vul eerst een URL in');
+                return;
+            }
+            const testPayload = {
+                type: 'test',
+                token: config.token || undefined,
+                message: 'LiftLog connection test',
+                timestamp: new Date().toISOString()
+            };
+            fetch(config.url, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(testPayload)
+            }).then(() => {
+                showToast('Test verstuurd! Check je Sheet.');
+            }).catch(err => {
+                showToast('Test mislukt: ' + err.message);
+            });
+        };
+
+        // Init sheets config status on page load
+        updateSheetsConfigStatus();
 
         // ICS Calendar Export
         function generateICS(trainings) {
