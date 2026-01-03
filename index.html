@@ -321,7 +321,7 @@
 <body>
     <header class="header">
         <div class="header-content">
-            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v3.9</small> <span id="sync-status" style="font-size:0.5rem;color:#666"></span></div>
+            <div class="logo">LIFT<span>LOG</span> <small style="font-size:0.5rem;color:#666">v3.9</small> <span id="sync-status" style="font-size:0.5rem;color:#666"></span><span id="sheets-status" style="font-size:0.5rem;color:#666;margin-left:2px"></span></div>
             <nav class="nav">
                 <button data-screen="dashboard">Home</button>
                 <button class="active" data-screen="new">Nieuw</button>
@@ -588,6 +588,127 @@
             });
         }
 
+        // Google Sheets sync
+        const SHEETS_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbzUAlg2rkrsUD4yGtXBMrLajeva3g8dq_nKh64lnoCvJ9fh2V1l0W6BtTtv6Q4mFPuJ3A/exec';
+        let sheetsQueue = JSON.parse(localStorage.getItem('liftlog_sheets_queue')) || [];
+
+        function updateSheetsStatus(status) {
+            const el = document.getElementById('sheets-status');
+            if (el) {
+                if (status === 'syncing') el.textContent = '📊⏳';
+                else if (status === 'synced') el.textContent = '📊✓';
+                else if (status === 'queued') el.textContent = '📊📴';
+                else if (status === 'error') el.textContent = '📊⚠️';
+                else el.textContent = '';
+                // Clear success indicator after 3 seconds
+                if (status === 'synced') {
+                    setTimeout(() => { if (el.textContent === '📊✓') el.textContent = ''; }, 3000);
+                }
+            }
+        }
+
+        function formatTrainingForSheets(training) {
+            // Convert internal format to Sheets webhook format
+            const datum = training.date;
+            const startTime = training.startTime ? new Date(training.startTime).toLocaleTimeString('nl-NL', {hour:'2-digit', minute:'2-digit'}) : '';
+
+            // Build sets array
+            const sets = [];
+            if (training.exercises) {
+                training.exercises.forEach(ex => {
+                    if (ex.skipped || !ex.sets) return;
+                    ex.sets.forEach((set, idx) => {
+                        sets.push({
+                            oefening: ex.name,
+                            setNr: idx + 1,
+                            gewicht: set.w || 0,
+                            reps: set.r || 0,
+                            rpe: set.rpe || null,
+                            type: set.warmup ? 'warmup' : (idx === ex.sets.filter(s => !s.warmup).length - 1 ? 'topset' : 'werk')
+                        });
+                    });
+                });
+            }
+
+            return {
+                type: training.isCardio ? 'cardio' : 'training',
+                id: training.id,
+                datum: datum,
+                training: training.day || (training.isCardio ? 'Cardio' : ''),
+                starttijd: startTime,
+                eindtijd: '',
+                week: training.week || null,
+                fase: '',
+                rpeTarget: null,
+                rpeWerkelijk: null,
+                notities: training.notes || '',
+                sets: sets,
+                // Cardio specific
+                cardioType: training.cardioType || null,
+                cardioName: training.cardioName || null,
+                duration: training.duration || null
+            };
+        }
+
+        function syncToGoogleSheets(training) {
+            const payload = formatTrainingForSheets(training);
+
+            if (!isOnline) {
+                // Queue for later
+                sheetsQueue.push(payload);
+                localStorage.setItem('liftlog_sheets_queue', JSON.stringify(sheetsQueue));
+                updateSheetsStatus('queued');
+                console.log('Sheets sync queued (offline)');
+                return;
+            }
+
+            updateSheetsStatus('syncing');
+
+            fetch(SHEETS_WEBHOOK_URL, {
+                method: 'POST',
+                mode: 'no-cors', // Google Apps Script requires no-cors
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(() => {
+                console.log('Synced to Google Sheets');
+                updateSheetsStatus('synced');
+            }).catch(err => {
+                console.error('Sheets sync error:', err);
+                // Queue for retry
+                sheetsQueue.push(payload);
+                localStorage.setItem('liftlog_sheets_queue', JSON.stringify(sheetsQueue));
+                updateSheetsStatus('error');
+            });
+        }
+
+        function processGoogleSheetsQueue() {
+            if (!isOnline || sheetsQueue.length === 0) return;
+
+            updateSheetsStatus('syncing');
+            const queue = [...sheetsQueue];
+            sheetsQueue = [];
+            localStorage.setItem('liftlog_sheets_queue', JSON.stringify(sheetsQueue));
+
+            // Send all queued items
+            Promise.all(queue.map(payload =>
+                fetch(SHEETS_WEBHOOK_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+            )).then(() => {
+                console.log(`Processed ${queue.length} queued Sheets syncs`);
+                updateSheetsStatus('synced');
+            }).catch(err => {
+                console.error('Sheets queue processing error:', err);
+                // Re-queue failed items
+                sheetsQueue = [...sheetsQueue, ...queue];
+                localStorage.setItem('liftlog_sheets_queue', JSON.stringify(sheetsQueue));
+                updateSheetsStatus('error');
+            });
+        }
+
         function loadFromFirebase() {
             if (!firebaseUid) return Promise.resolve(null);
 
@@ -646,6 +767,10 @@
             if (pendingSync && firebaseUid) {
                 syncToFirebase();
                 showToast('Online - data gesynchroniseerd');
+            }
+            // Process queued Sheets syncs
+            if (sheetsQueue.length > 0) {
+                processGoogleSheetsQueue();
             }
         });
 
@@ -1614,6 +1739,7 @@
                 };
                 data.unshift(session);
                 save();
+                syncToGoogleSheets(session);
                 showToast('Cardio opgeslagen!');
                 // Reset
                 document.querySelectorAll('.cardio-btn').forEach(b => b.classList.remove('active'));
@@ -1657,6 +1783,7 @@
             }
             data.unshift(training);
             save();
+            syncToGoogleSheets(training);
             showToast('Opgeslagen!');
             updateWeekSelect();
             updateDayButtons();
